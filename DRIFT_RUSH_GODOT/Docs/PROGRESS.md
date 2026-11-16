@@ -1,0 +1,23 @@
+# PROGRESS
+
+## 2026-11-16: 첫 작업 세션
+
+| 단계 | 결과물 | 상태 | 실행 검증 | 미해결 |
+|---|---|---|---|---|
+| M0 환경·저장소 | Godot 4.7.2 공식 바이너리, export templates, Android SDK, 구조, .gitignore, 테스트 러너 | 완료 | `--import`, CheckAll 실패 0 | Blender·Xcode 없음 |
+| M1 플레이 가능한 3D 카트 | SakuraValley(도로/연석/벽 충돌, 체크포인트 8, 그리드, 복구 지점), KartBase, 추적 카메라, 자동 가속, 키보드 조향, 랩·완주·결과 화면 | **완료** | 3랩 자동 주행 완주, 물리 테스트 7개, 스크린샷·영상 | — |
+| M2 모바일 조작감 | 기울기 조향(보정/감도/데드존/반전/축/스무딩), 터치 멀티터치 버튼, 드리프트, 부스터, 브레이크, 진동, 합성 효과음, HUD, 설정, Android APK | 부분 | 로직 테스트, APK 서명 검증 | **실기기 기울기·진동·FPS 미검증**, iOS는 Mac 필요 |
+| M3 앱 UX·그래픽 | 로그인, 로비(3D 차고), 모드 선택, 방, 맵 선택, 차고, 튜토리얼, 일시정지, 결과, 설정, 프로필, 품질 프리셋, MultiMesh | 완료(1차) | UI 테스트 5개, 스크린샷 | 아트 디테일 보강 |
+| M4 멀티플레이·Firebase | ENet LAN 2~8인(로비/준비/방장/시작/보간/DNF), FirebaseAdapter(REST), MockBackend, Functions, Rules | 부분 | 2프로세스 LAN 레이스(150ms/3%), 이탈 DNF, Functions 규칙 테스트 | 전용 서버 권한 모델, Firebase 실연결·배포, 인터넷 대전 |
+| M5 아이템전·Neon City | 오프라인 아이템전(미사일/실드/터보/함정, 순위 가중), Neon City 플레이 가능 | 부분 | 아이템전 완주 테스트 | 온라인 아이템전은 개발 중 |
+
+### 이번 세션 변경 파일
+프로젝트 전체를 신규 작성했습니다(`DRIFT_RUSH_GODOT/`). 주요 파일은 README의 폴더 구조를 참고하세요.
+
+### 실행 결과
+- `Tests/output/test_results.json`: 43개 테스트 통과
+- `Docs/screenshots/`, `Docs/demo/drift_rush_demo.mp4`
+- `Build/android/DriftRush-debug.apk` (저장소 제외, ZIP으로 별도 전달)
+
+### 남은 이슈
+`Docs/OPEN_ISSUES.md` 참고.

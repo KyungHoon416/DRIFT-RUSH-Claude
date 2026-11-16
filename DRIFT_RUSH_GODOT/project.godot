@@ -1,0 +1,65 @@
+; Engine configuration file.
+; DRIFT RUSH — Godot 4.7.2 Stable, GDScript only.
+
+config_version=5
+
+[application]
+
+config/name="DRIFT RUSH"
+config/description="3D mobile kart racing — tilt steering, auto acceleration, drift & boost."
+config/version="0.3.0"
+run/main_scene="res://Scenes/App/Bootstrap.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+config/icon="res://icon.svg"
+
+[autoload]
+
+SaveSettings="*res://Scripts/Core/SaveSettings.gd"
+GameFlow="*res://Scripts/Core/GameFlow.gd"
+Haptics="*res://Scripts/Feedback/Haptics.gd"
+AudioFeedback="*res://Scripts/Feedback/AudioFeedback.gd"
+Backend="*res://Scripts/Backend/BackendService.gd"
+Net="*res://Scripts/Net/NetworkTransport.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+window/energy_saving/keep_screen_on=true
+
+[gui]
+
+theme/custom_font="res://Assets/Fonts/NotoSansKR.ttf"
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+sensors/enable_accelerometer=true
+sensors/enable_gravity=true
+sensors/enable_gyroscope=true
+
+[physics]
+
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=4
+3d/default_gravity=30.0
+
+[layer_names]
+
+3d_physics/layer_1="world"
+3d_physics/layer_2="walls"
+3d_physics/layer_3="karts"
+3d_physics/layer_4="triggers"
+
+[rendering]
+
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+rendering_device/fallback_to_opengl3=true
+textures/vram_compression/import_etc2_astc=true
+anti_aliasing/quality/msaa_3d=0
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/directional_shadow/size.mobile=2048

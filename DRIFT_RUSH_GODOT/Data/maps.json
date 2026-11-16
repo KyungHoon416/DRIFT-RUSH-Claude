@@ -1,0 +1,4 @@
+{
+  "sakura_valley": { "name": "Sakura Valley", "scene": "res://Scenes/Tracks/SakuraValley.tscn", "difficulty": 2, "curvature": "중간 · S자 + 헤어핀", "design_length_km": 2.8, "status": "complete" },
+  "neon_city":     { "name": "Neon City", "scene": "res://Scenes/Tracks/NeonCity.tscn", "difficulty": 3, "curvature": "높음 · 직각 코너", "design_length_km": 3.1, "status": "playable_prototype" }
+}

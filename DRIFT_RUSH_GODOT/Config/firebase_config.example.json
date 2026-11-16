@@ -1,0 +1,5 @@
+{
+  "apiKey": "YOUR_WEB_API_KEY",
+  "projectId": "your-firebase-project-id",
+  "functionsRegion": "asia-northeast3"
+}

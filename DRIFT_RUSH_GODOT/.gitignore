@@ -1,0 +1,21 @@
+# Godot
+.godot/
+*.import.tmp
+/android/
+export/
+Build/
+*.apk
+*.aab
+*.ipa
+*.keystore
+*.jks
+# Secrets / local config
+Config/firebase_config.json
+GoogleService-Info.plist
+google-services.json
+.env
+# Node (Cloud Functions)
+Backend/functions/node_modules/
+# Test outputs
+Tests/output/
+*.avi

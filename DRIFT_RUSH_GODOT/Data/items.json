@@ -1,0 +1,12 @@
+{
+  "_comment": "Item race rules. Fairness: items are weighted by current rank (rank_bias), use cooldown and hit invulnerability prevent chain-stuns.",
+  "box_respawn_sec": 3.0,
+  "use_cooldown_sec": 1.0,
+  "hit_invulnerable_sec": 1.5,
+  "items": {
+    "missile": { "label": "MISSILE", "weight_front": 1, "weight_back": 4, "speed": 55.0, "lifetime": 6.0, "spin_sec": 1.2 },
+    "shield":  { "label": "SHIELD",  "weight_front": 3, "weight_back": 2, "duration": 6.0 },
+    "turbo":   { "label": "TURBO",   "weight_front": 2, "weight_back": 4, "duration": 1.6, "bonus": 14.0 },
+    "trap":    { "label": "PETAL TRAP", "weight_front": 4, "weight_back": 1, "lifetime": 25.0, "spin_sec": 1.0 }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "_comment": "Arcade kart tuning. Units: meters, seconds, m/s. HUD shows km/h = m/s * 3.6. Edit and restart; no code change needed.",
+  "default": {
+    "max_speed": 30.0,
+    "acceleration": 13.0,
+    "brake_decel": 28.0,
+    "coast_decel": 5.0,
+    "turn_speed": 2.0,
+    "drift_turn_bonus": 1.2,
+    "drift_min_speed": 12.0,
+    "drift_min_steer": 0.3,
+    "drift_charge_rate": 0.55,
+    "drift_gauge_rate": 0.32,
+    "boost_speed_bonus": 12.0,
+    "boost_accel": 45.0,
+    "boost_duration": 2.2,
+    "mini_boost_duration": 0.55,
+    "wall_speed_keep": 0.55,
+    "kart_hit_speed_keep": 0.82,
+    "grip": 9.0,
+    "drift_grip": 2.6,
+    "gravity": 30.0,
+    "offroad_max_speed_factor": 0.55
+  }
+}

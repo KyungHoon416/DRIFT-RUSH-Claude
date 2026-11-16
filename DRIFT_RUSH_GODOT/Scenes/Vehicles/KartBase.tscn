@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/Vehicles/KartController.gd" id="1_s"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kart"]
+radius = 0.65
+height = 2.3
+
+[node name="KartBase" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 7
+script = ExtResource("1_s")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_kart")
