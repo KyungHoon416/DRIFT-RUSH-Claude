@@ -18,6 +18,18 @@ const TEXT_DIM := Color("9fb0d8")
 
 static var _display_font: Font
 static var _bold_font: Font
+static var _regular_font: Font
+
+
+## Noto Sans KR is a variable font; its default instance is very thin and
+## Hangul strokes vanish when the window is scaled down. Use Medium (500).
+static func regular_font() -> Font:
+	if _regular_font == null:
+		var v := FontVariation.new()
+		v.base_font = load("res://Assets/Fonts/NotoSansKR.ttf")
+		v.variation_opentype = {"wght": 500}
+		_regular_font = v
+	return _regular_font
 
 
 static func display_font() -> Font:
@@ -57,6 +69,7 @@ static func box(bg: Color, border := Color(0, 0, 0, 0), radius := 14, border_w :
 static func build() -> Theme:
 	var t := Theme.new()
 	t.default_font_size = 20
+	t.default_font = regular_font()
 	# Buttons (secondary style: navy with blue border)
 	t.set_stylebox("normal", "Button", box(NAVY_2, BLUE, 12, 2))
 	t.set_stylebox("hover", "Button", box(NAVY_2.lightened(0.12), CYAN, 12, 2))
