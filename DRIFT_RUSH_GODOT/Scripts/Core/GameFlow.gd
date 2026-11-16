@@ -132,23 +132,7 @@ func start_offline_race(mode: String, map_id: String, bots: int, laps := 3) -> v
 ## ---------------------------------------------------------------- Input map
 ## Registered at runtime so the bindings are visible in one place and testable.
 func register_input_actions() -> void:
-	_bind("steer_left", [KEY_A, KEY_LEFT])
-	_bind("steer_right", [KEY_D, KEY_RIGHT])
-	_bind("brake", [KEY_S, KEY_DOWN])
-	_bind("drift", [KEY_SPACE, KEY_SHIFT])
-	_bind("boost", [KEY_W, KEY_UP, KEY_B])
-	_bind("use_item", [KEY_E, KEY_CTRL])
-	_bind("pause", [KEY_ESCAPE, KEY_P])
-	_bind("respawn", [KEY_R])
-
-
-func _bind(action: String, keys: Array) -> void:
-	if not InputMap.has_action(action):
-		InputMap.add_action(action, 0.2)
-	for k in keys:
-		var ev := InputEventKey.new()
-		ev.physical_keycode = k
-		InputMap.action_add_event(action, ev)
+	InputBindings.apply()
 
 
 ## ---------------------------------------------------------------- Quality

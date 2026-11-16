@@ -9,6 +9,9 @@ var tilt := TiltSteering.new()
 var enabled := true
 var sensor_available := false
 var last_source := "none"
+const KEY_STEER_IN := 6.5     # full lock in ~0.15 s
+const KEY_STEER_OUT := 11.0   # back to centre in ~0.09 s
+var _kb_steer := 0.0
 
 
 func _ready() -> void:
@@ -26,7 +29,12 @@ func _physics_process(delta: float) -> void:
 		return
 	var g := Input.get_gravity()
 	sensor_available = TiltSteering.has_sensor(g)
-	var kb := Input.get_axis("steer_left", "steer_right")
+	var raw := Input.get_axis("steer_left", "steer_right")
+	# Keys are digital: ramp the wheel in (fast) and back to centre (faster)
+	# so short taps give small corrections instead of full lock.
+	var rate := KEY_STEER_IN if absf(raw) > absf(_kb_steer) and signf(raw) == signf(_kb_steer) or _kb_steer == 0.0 else KEY_STEER_OUT
+	_kb_steer = move_toward(_kb_steer, raw, rate * delta)
+	var kb := _kb_steer
 	var steer := kb
 	last_source = "keys/touch" if absf(kb) > 0.01 else "none"
 	if absf(kb) < 0.01 and String(SaveSettings.get_value("control_mode")) == "tilt" and sensor_available:
@@ -39,6 +47,8 @@ func _physics_process(delta: float) -> void:
 		kart.boost_request = true
 	if Input.is_action_just_pressed("use_item"):
 		kart.item_request = true
+	if Input.is_action_just_pressed("respawn"):
+		kart.respawn_request = true
 
 
 func _notification(what: int) -> void:
@@ -50,6 +60,7 @@ func _notification(what: int) -> void:
 
 ## Clears held touch actions (e.g. when the app goes to background).
 func release_all() -> void:
+	_kb_steer = 0.0
 	for a in ["steer_left", "steer_right", "drift", "brake", "boost", "use_item"]:
 		Input.action_release(a)
 	if kart:

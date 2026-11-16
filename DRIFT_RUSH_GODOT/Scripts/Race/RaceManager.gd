@@ -149,6 +149,12 @@ func _update_karts(delta: float) -> void:
 			if ww != bool(wrong_way[k]):
 				wrong_way[k] = ww
 				wrong_way_changed.emit(k, ww)
+		# Manual recovery (R key / pad Back), at most every 2 s.
+		if k.respawn_request:
+			k.respawn_request = false
+			if k.invulnerable_timer <= 0.0:
+				respawn(k)
+				continue
 		# Fell off the world / stuck → respawn at last safe point.
 		var fell := k.global_position.y < track.min_y - 6.0
 		if k.control_enabled and not k.brake_input and k.spin_timer <= 0.0 and absf(k.speed) < 1.5:

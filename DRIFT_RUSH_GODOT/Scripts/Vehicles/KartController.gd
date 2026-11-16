@@ -20,6 +20,8 @@ const LAYER_WORLD := 1
 const LAYER_WALLS := 2
 const LAYER_KARTS := 4
 const LAYER_TRIGGERS := 8
+## Visible kart footprint used for kart-vs-kart contact (width, height, length).
+const BODY_SIZE := Vector3(1.66, 1.1, 2.95)
 
 @export var stats_id := "default"
 var stats: Dictionary = {}
@@ -37,6 +39,7 @@ var drift_input := false
 var brake_input := false
 var boost_request := false
 var item_request := false
+var respawn_request := false
 
 # State
 var speed := 0.0
@@ -69,7 +72,7 @@ func _ready() -> void:
 	drift.configure(stats)
 	collision_layer = LAYER_KARTS
 	collision_mask = LAYER_WORLD | LAYER_WALLS | LAYER_KARTS
-	floor_max_angle = deg_to_rad(50.0)
+	floor_max_angle = deg_to_rad(40.0)
 	floor_snap_length = 0.6
 	floor_constant_speed = true
 	floor_block_on_wall = false
@@ -86,6 +89,17 @@ func _ready() -> void:
 		add_child(cs)
 	cs.position = Vector3(0, 0.65, 0)
 	cs.rotation_degrees = Vector3(90, 0, 0)
+	# Body box with vertical sides, sized to the visible kart. Without it the
+	# rounded capsule acts like a ramp and karts climb over / slide through
+	# each other. Its bottom sits above the road so it never snags the floor.
+	if get_node_or_null("BodyBox") == null:
+		var bb := CollisionShape3D.new()
+		bb.name = "BodyBox"
+		var box := BoxShape3D.new()
+		box.size = BODY_SIZE
+		bb.shape = box
+		bb.position = Vector3(0, 0.3 + BODY_SIZE.y / 2.0, 0.05)
+		add_child(bb)
 	if model == null:
 		var q: Dictionary = GameFlow.quality_profile() if is_instance_valid(GameFlow) else {"particles": 1.0, "decor_lights": false}
 		model = KartModel.new()
@@ -212,6 +226,7 @@ func _physics_process(delta: float) -> void:
 	var pre_speed := speed
 	move_and_slide()
 	_handle_collisions(dir, pre_speed)
+	_separate_from_karts()
 	_animate(delta)
 
 
@@ -241,8 +256,12 @@ func _handle_collisions(dir: Vector3, pre_speed: float) -> void:
 		var strength := clampf(into * pre_speed / maxf(1.0, float(stats["max_speed"])), 0.0, 1.0)
 		var other := c.get_collider()
 		if other is KartController:
+			var ok := other as KartController
 			speed *= lerpf(1.0, float(stats["kart_hit_speed_keep"]), into)
-			(other as KartController).receive_bump(-hn, strength)
+			# Rear-end hit: hand some momentum to the kart in front.
+			if ok.forward().dot(dir) > 0.5 and pre_speed > ok.speed:
+				ok.speed += (pre_speed - ok.speed) * 0.35 * into
+			ok.receive_bump(-hn, strength)
 			_emit_impact("kart", strength)
 		else:
 			speed *= lerpf(1.0, float(stats["wall_speed_keep"]), clampf(into, 0.0, 1.0))
@@ -256,6 +275,34 @@ func _handle_collisions(dir: Vector3, pre_speed: float) -> void:
 			if drift.drifting and into > 0.5:
 				drift.cancel()
 			_emit_impact("wall", strength)
+
+
+## Safety net against interpenetration (e.g. two karts steering into each
+## other in the same frame, or a network ghost teleporting onto us): push this
+## kart out along the axis of least overlap, collision-checked.
+func _separate_from_karts() -> void:
+	for n in get_tree().get_nodes_in_group("karts"):
+		var o := n as KartController
+		if o == null or o == self or not o.is_inside_tree():
+			continue
+		if absf(global_position.y - o.global_position.y) > 1.2:
+			continue
+		var d := global_position - o.global_position
+		var f := o.forward()
+		var r := f.cross(Vector3.UP)
+		var lat := d.dot(r)
+		var lon := d.dot(f)
+		var pen_lat := BODY_SIZE.x - absf(lat)
+		var pen_lon := BODY_SIZE.z - absf(lon)
+		if pen_lat <= 0.0 or pen_lon <= 0.0:
+			continue
+		var share := 1.0 if o.is_remote else 0.5
+		var push: Vector3
+		if pen_lat < pen_lon:
+			push = r * (1.0 if lat >= 0.0 else -1.0) * pen_lat
+		else:
+			push = f * (1.0 if lon >= 0.0 else -1.0) * pen_lon
+		move_and_collide(push * share)
 
 
 func receive_bump(push_dir: Vector3, strength: float) -> void:

@@ -34,6 +34,11 @@ var touch: TouchControls
 var pause_layer: Control
 var confirm_box: Control
 var _msg_timer := 0.0
+var desktop := true
+var help_panel: PanelContainer
+var hint_label: Label
+var _help_auto_hide := -1.0
+var _t := 0.0
 var boost_label: Label
 var _boost_label_t := 0.0
 var _standings_rows: Array[Label] = []
@@ -78,6 +83,11 @@ func setup(w: Node, r: RaceManager, k: KartController, is_online: bool, is_item:
 	k.drift_boost.connect(_on_drift_boost)
 	k.item_changed.connect(func(it: String): touch.set_item(GameFlow.item_rules.get("items", {}).get(it, {}).get("label", "")))
 	touch.set_item("")
+	desktop = not OS.has_feature("mobile")
+	touch.set_key_hints(desktop)
+	if desktop and bool(SaveSettings.get_value("controls_hint")):
+		help_panel.visible = true
+	r.race_started.connect(func(): _help_auto_hide = 5.0)
 	_apply_safe_area()
 
 
@@ -215,12 +225,57 @@ func _build() -> void:
 	boost_label.pivot_offset = Vector2(200, 35)
 	root.add_child(boost_label)
 
+	hint_label = UITheme.title_label("", 24, UITheme.CYAN)
+	hint_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	hint_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint_label.offset_top = -150
+	hint_label.offset_bottom = -118
+	root.add_child(hint_label)
+	help_panel = _build_help_panel()
+	help_panel.visible = false
+	root.add_child(help_panel)
+
 	# --- touch controls (bottom corners)
 	touch = TouchControls.new()
 	touch.name = "TouchControls"
 	root.add_child(touch)
 
 	_build_pause()
+
+
+func _build_help_panel() -> PanelContainer:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", UITheme.box(Color(0.03, 0.07, 0.2, 0.82), Color(0.3, 0.6, 1.0, 0.8), 14, 2))
+	# Right side under the minimap: keeps the centre (countdown, kart) clear.
+	p.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	p.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	p.offset_top = 212
+	p.offset_right = -20
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var v := VBoxContainer.new()
+	p.add_child(v)
+	var title := UITheme.title_label("PC 조작키  (F1)", 18, UITheme.ORANGE)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(title)
+	var g := GridContainer.new()
+	g.name = "HelpGrid"
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 18)
+	g.add_theme_constant_override("v_separation", 2)
+	v.add_child(g)
+	_fill_help(g)
+	return p
+
+
+func _fill_help(g: GridContainer) -> void:
+	for c in g.get_children():
+		c.queue_free()
+	for line in InputBindings.help_lines():
+		var k := UITheme.label(String(line[0]), 15, UITheme.CYAN, true)
+		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		g.add_child(k)
+		g.add_child(UITheme.label(String(line[1]), 14, UITheme.TEXT))
 
 
 func _build_pause() -> void:
@@ -262,6 +317,14 @@ func _build_pause() -> void:
 	vib.button_pressed = bool(SaveSettings.get_value("vibration_enabled"))
 	vib.toggled.connect(func(on: bool): SaveSettings.set_value("vibration_enabled", on))
 	v.add_child(vib)
+	if not OS.has_feature("mobile"):
+		var keys := UITheme.label("", 15, UITheme.TEXT_DIM)
+		keys.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var parts: Array = []
+		for line in InputBindings.help_lines().slice(0, 6):
+			parts.append("%s %s" % [line[0], String(line[1]).split(" —")[0]])
+		keys.text = "조작키: " + "  ·  ".join(parts) + "\n(설정에서 키를 바꿀 수 있습니다)"
+		v.add_child(keys)
 	var exit := UITheme.button("나가기  EXIT", Vector2(460, 58))
 	exit.name = "ExitButton"
 	exit.pressed.connect(func(): confirm_box.visible = true)
@@ -308,6 +371,11 @@ func set_paused(p: bool) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("help"):
+		help_panel.visible = not help_panel.visible
+		_help_auto_hide = -1.0
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("pause"):
 		set_paused(not pause_layer.visible)
 		get_viewport().set_input_as_handled()
@@ -349,6 +417,22 @@ func _process(delta: float) -> void:
 	gauge.queue_redraw()
 	drift_bar.queue_redraw()
 	touch.set_boost_fill(kart.boost_gauge)
+	_t += delta
+	if _help_auto_hide > 0.0:
+		_help_auto_hide -= delta
+		if _help_auto_hide <= 0.0:
+			help_panel.visible = false
+	# Context hints: tell the player exactly how to use what they have.
+	var hint := ""
+	if kart.held_item != "":
+		var it: String = GameFlow.item_rules.get("items", {}).get(kart.held_item, {}).get("label", kart.held_item)
+		hint = ("[%s] 아이템 사용: %s" % [InputBindings.label_for("use_item"), it]) if desktop else ("ITEM 버튼: %s" % it)
+	elif kart.boost_gauge >= 1.0:
+		hint = ("BOOST 준비!  [%s]" % InputBindings.label_for("boost")) if desktop else "BOOST 준비!  버튼을 누르세요"
+	elif kart.drift.drifting:
+		hint = ("드리프트 중… [%s] 떼면 순간 부스터" % InputBindings.primary_label("drift")) if desktop else "드리프트 중… 떼면 순간 부스터"
+	hint_label.text = hint
+	hint_label.modulate.a = 0.75 + 0.25 * sin(_t * 8.0) if hint.begins_with("BOOST") else 1.0
 	if _boost_label_t > 0.0:
 		_boost_label_t -= delta
 		boost_label.modulate.a = clampf(_boost_label_t / 0.4, 0.0, 1.0)
@@ -428,9 +512,10 @@ func _on_lap(k: KartController, lap: int, lap_time: float) -> void:
 		return
 	if lap == race.laps - 1:
 		show_message("FINAL LAP!  " + GameFlow.format_time(lap_time), 2.5, UITheme.PINK)
+		AudioFeedback.play("final_lap")
 	elif lap < race.laps:
 		show_message("LAP %d  %s" % [lap, GameFlow.format_time(lap_time)], 2.0)
-	AudioFeedback.play("lap")
+		AudioFeedback.play("lap")
 
 
 func _on_wrong_way(k: KartController, wrong: bool) -> void:

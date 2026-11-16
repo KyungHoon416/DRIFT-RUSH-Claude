@@ -42,6 +42,7 @@ func build() -> void:
 		SaveSettings.reset_to_defaults()
 		GameFlow.goto("settings"))
 	b.add_child(reset)
+	_build_key_section(cols)
 	add_status()
 	SaveSettings.save_failed.connect(_on_save_failed)
 
@@ -59,3 +60,66 @@ func _section(parent: Control, title: String) -> VBoxContainer:
 	p.add_child(v)
 	v.add_child(UITheme.title_label(title, 24, UITheme.CYAN))
 	return v
+
+
+# ------------------------------------------------------------- PC key bindings
+var _capturing := ""
+var _key_buttons: Dictionary = {}
+
+
+func _build_key_section(cols: Control) -> void:
+	var c := _section(cols, "PC 조작키 KEYS")
+	c.add_child(UITheme.label("버튼을 누른 뒤 원하는 키를 누르세요 (Esc 취소).\n게임패드: 스틱 조향 · A 드리프트 · Y/RB 부스터 · X/LB 아이템 · B 브레이크", 15, UITheme.TEXT_DIM))
+	for action in InputBindings.ACTIONS:
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		var l := UITheme.label(String(InputBindings.LABELS[action]), 18, UITheme.TEXT, true)
+		l.custom_minimum_size = Vector2(120, 0)
+		h.add_child(l)
+		var b := UITheme.button("", Vector2(170, 44))
+		b.name = "Key_" + String(action)
+		b.add_theme_font_size_override("font_size", 18)
+		b.pressed.connect(_start_capture.bind(action))
+		h.add_child(b)
+		_key_buttons[action] = b
+		c.add_child(h)
+	c.add_child(SettingsWidgets.check_row("레이스 시작 때 조작키 안내", "controls_hint"))
+	var reset := UITheme.button("조작키 기본값", Vector2(0, 46))
+	reset.name = "ResetKeys"
+	reset.pressed.connect(func():
+		InputBindings.reset_defaults()
+		_refresh_keys()
+		set_status("조작키를 기본값으로 되돌렸습니다."))
+	c.add_child(reset)
+	_refresh_keys()
+
+
+func _refresh_keys() -> void:
+	for action in _key_buttons.keys():
+		var b: Button = _key_buttons[action]
+		b.text = InputBindings.label_for(action)
+
+
+func _start_capture(action: String) -> void:
+	_capturing = action
+	_refresh_keys()
+	(_key_buttons[action] as Button).text = "키를 누르세요…"
+
+
+func _input(event: InputEvent) -> void:
+	if _capturing == "" or not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	get_viewport().set_input_as_handled()
+	var ke := event as InputEventKey
+	var action := _capturing
+	_capturing = ""
+	if ke.physical_keycode == KEY_ESCAPE and action != "pause":
+		_refresh_keys()
+		set_status("변경을 취소했습니다.")
+		return
+	var stolen := InputBindings.rebind(action, ke.physical_keycode)
+	_refresh_keys()
+	var msg := "%s → %s" % [InputBindings.LABELS[action], InputBindings.key_name(ke.physical_keycode)]
+	if stolen != "":
+		msg += "  (%s에서 이 키를 뺐습니다)" % InputBindings.LABELS[stolen]
+	set_status(msg)

@@ -26,25 +26,29 @@ godot --path DRIFT_RUSH_GODOT res://Scenes/Race/RaceWorld.tscn -- --mode=speed -
 ```
 처음 열 때 폰트 임포트로 몇 초 걸립니다. 클래스 캐시가 없다는 오류가 나면 `godot --headless --path . --import`를 한 번 실행하세요.
 
-## 3. PC 키보드 조작 (데스크톱 대체 조작)
-| 동작 | 키 | 모바일 |
-|---|---|---|
-| 가속 | **자동** (출발 신호 후 항상) | 자동 |
-| 좌/우 조향 | `A`/`D` 또는 `←`/`→` | 기기 기울이기 / 터치 ◀ ▶ |
-| 브레이크 | `S` 또는 `↓` (누르는 동안) | 좌하단 BRAKE |
-| 드리프트 | `Space` 또는 `Shift` (누른 채 조향) | 우하단 DRIFT |
-| 부스터 | `W`/`↑`/`B` (게이지 가득 찼을 때) | 우하단 BOOST |
-| 아이템 | `E` 또는 `Ctrl` | 좌하단 ITEM |
-| 일시정지 | `Esc`/`P` | 우상단 II |
+## 3. PC 조작 (키보드 · 게임패드)
+| 동작 | 키보드 (기본값) | 게임패드 | 모바일 |
+|---|---|---|---|
+| 가속 | **자동** (출발 신호 후 항상) | 자동 | 자동 |
+| 좌/우 조향 | `←` `→` 또는 `A` `D` (짧게 누르면 살짝, 길게 누르면 끝까지) | 왼쪽 스틱 / 십자키 | 기기 기울이기 / 터치 ◀ ▶ |
+| 드리프트 | `Shift` 또는 `Space`를 **누른 채 꺾기** → 떼는 순간 **순간 부스터** | A / RT | DRIFT |
+| 부스터 | `↑` 또는 `W` — 아래 게이지(드리프트로 충전)가 가득 찼을 때 | Y / RB | BOOST |
+| 아이템 | `Ctrl` 또는 `E` (아이템전에서 ? 상자를 먹은 뒤) | X / LB | ITEM |
+| 브레이크 | `↓` 또는 `S` (누르는 동안) | B / LT | BRAKE |
+| 트랙 복귀 | `R` | Back | — |
+| 일시정지 | `Esc` / `P` | Start | II |
+| 조작 도움말 | `F1` / `H` | — | — |
 
-마우스 클릭도 터치로 인식되므로(`emulate_touch_from_mouse`) PC에서 화면 버튼을 눌러 볼 수 있습니다.
+- PC에서는 레이스 시작 때 오른쪽에 **조작키 안내**가 뜨고(출발 5초 후 자동으로 사라짐, `F1`로 다시 표시), 화면 버튼 위에 해당 키가 표시됩니다.
+- 부스터 게이지가 차면 "BOOST 준비! [↑ / W]", 아이템을 들고 있으면 "[Ctrl / E] 아이템 사용: MISSILE"처럼 화면 아래에 안내가 나옵니다.
+- **설정 → PC 조작키**에서 모든 키를 바꿀 수 있습니다(겹치는 키는 자동으로 정리, "조작키 기본값"으로 복구).
 
 ## 4. 테스트
 ```bash
 cd DRIFT_RUSH_GODOT
 godot --headless --path . --import                                         # 최초 1회
 godot --headless --path . res://Tools/CheckAll.tscn                        # 모든 스크립트·씬 로드 검사
-godot --headless --fixed-fps 60 --path . res://Tests/TestRunner.tscn       # 단위·통합 테스트 50개
+godot --headless --fixed-fps 60 --path . res://Tests/TestRunner.tscn       # 단위·통합 테스트 59개
 Tools/run_net_test.sh 150 0.03                                             # 2프로세스 LAN 레이스 (지연 150ms, 손실 3%)
 Tools/run_net_test.sh 0 0 12                                               # 경기 중 12초에 클라이언트 이탈 → DNF
 SCENARIO=dedicated Tools/run_net_test.sh                                   # 전용 서버 + 클라이언트 2 (코드 검색 참가)

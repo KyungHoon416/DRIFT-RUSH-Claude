@@ -18,6 +18,7 @@ class VButton:
 	var enabled := true
 	var fill := 0.0          # 0..1 ring (boost gauge)
 	var badge := ""
+	var key_hint := ""       # PC: keyboard key shown on the button
 
 	func _init(a: String, t: String, c: Color, r: float) -> void:
 		action = a
@@ -49,6 +50,13 @@ class VButton:
 			var ss := int(radius * 0.22)
 			var sw := f.get_string_size(sub, HORIZONTAL_ALIGNMENT_CENTER, -1, ss)
 			draw_string(f, Vector2(c.x - sw.x / 2.0, c.y + radius * 0.62), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, ss, Color(1, 1, 1, 0.85))
+		if key_hint != "":
+			var ks := int(radius * 0.24)
+			var kw := f.get_string_size(key_hint, HORIZONTAL_ALIGNMENT_CENTER, -1, ks).x + 12.0
+			var kp := c + Vector2(-kw / 2.0, -radius - ks - 8.0)
+			draw_rect(Rect2(kp, Vector2(kw, ks + 8.0)), Color(0.03, 0.06, 0.16, 0.85))
+			draw_rect(Rect2(kp, Vector2(kw, ks + 8.0)), Color(col.lightened(0.4), 0.9), false, 2.0)
+			draw_string(f, kp + Vector2(6.0, ks + 2.0), key_hint, HORIZONTAL_ALIGNMENT_LEFT, -1, ks, Color.WHITE)
 		if badge != "":
 			draw_circle(c + Vector2(radius * 0.7, -radius * 0.7), radius * 0.28, Color(1.0, 0.75, 0.1))
 			var bs := int(radius * 0.3)
@@ -115,6 +123,14 @@ func layout() -> void:
 	else:
 		brake.position = Vector2(ml, s.y - mb - brake.size.y)
 		item.position = Vector2(brake.position.x + brake.size.x + 24.0, s.y - mb - item.size.y - 8.0)
+
+
+## PC: label each virtual button with its keyboard key.
+func set_key_hints(show: bool) -> void:
+	for action in buttons.keys():
+		var b: VButton = buttons[action]
+		b.key_hint = InputBindings.primary_label(action) if show else ""
+		b.queue_redraw()
 
 
 func set_boost_fill(v: float) -> void:
@@ -186,6 +202,8 @@ func _press(index: int, action: String) -> void:
 	b.pressed = true
 	b.queue_redraw()
 	button_pressed.emit(action)
+	if OS.has_feature("mobile"):
+		Haptics.impact("ui", 0.2)
 
 
 func _release(index: int) -> void:

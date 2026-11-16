@@ -33,6 +33,8 @@ const DEFAULTS := {
 	"tutorial_done": false,
 	"best_laps": {},                 # map_id -> seconds (local, NOT server-verified)
 	"best_races": {},                # map_id -> seconds (local, NOT server-verified)
+	"key_bindings": {},              # action -> [physical keycodes] (PC re-binding)
+	"controls_hint": true,           # show the keyboard help at race start (PC)
 }
 
 var path := "user://settings.cfg"

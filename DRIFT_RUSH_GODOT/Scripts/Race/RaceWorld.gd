@@ -20,6 +20,8 @@ var karts_by_peer: Dictionary = {}
 var online := false
 var _finish_timer := -1.0
 var _autopilot: AIDriver
+var _drift_tier_heard := 0
+var _engines_3d: Dictionary = {}
 
 
 func _ready() -> void:
@@ -204,16 +206,58 @@ func _wire_feedback(k: KartController) -> void:
 		AudioFeedback.play_impact(kind, strength)
 		camera.add_shake(strength * (0.25 if kind == "kart" else 0.35)))
 	k.boost_started.connect(func(kind: String):
-		AudioFeedback.play("boost" if kind != "mini" else "mini_boost")
+		if kind != "mini":
+			AudioFeedback.play("boost")
 		Haptics.impact("boost", 0.6))
-	k.drift_started.connect(func(_d: int): AudioFeedback.set_drift(true))
+	k.drift_boost.connect(func(tier: int): AudioFeedback.play_drift_boost(tier))
+	k.drift_started.connect(func(_d: int):
+		_drift_tier_heard = 0
+		AudioFeedback.set_drift(true, 0.0))
 	k.drift_ended.connect(func(_c: float, _t: int): AudioFeedback.set_drift(false))
+	k.respawned.connect(func(): AudioFeedback.play("respawn"))
+	if items:
+		items.item_used.connect(_on_item_used_sound)
+		items.item_hit.connect(func(target: KartController, _it: String): AudioFeedback.play_at("item", target.global_position))
+	# Other karts get a quiet positional engine.
+	for other in karts:
+		if other != k:
+			var e := AudioFeedback.make_kart_engine_3d()
+			e.name = "Engine3D"
+			other.add_child(e)
+			_engines_3d[other] = e
+
+
+func _on_item_used_sound(user: KartController, item: String) -> void:
+	var s: String = {"missile": "missile", "shield": "shield", "trap": "trap", "turbo": "boost"}.get(item, "")
+	if s == "":
+		return
+	if user == player:
+		AudioFeedback.play(s)
+	else:
+		AudioFeedback.play_at(s, user.global_position, -4.0)
 
 
 func _process(_delta: float) -> void:
 	if player:
-		AudioFeedback.set_engine(race.state == RaceManager.State.RACING or race.state == RaceManager.State.COUNTDOWN,
-			absf(player.speed) / maxf(1.0, player.max_speed_now()))
+		var running := race.state == RaceManager.State.RACING or race.state == RaceManager.State.COUNTDOWN
+		AudioFeedback.listener_pos = player.global_position
+		AudioFeedback.set_engine(running, absf(player.speed) / maxf(1.0, float(player.stats["max_speed"])), player.boost.active)
+		if player.drift.drifting:
+			AudioFeedback.set_drift(true, player.drift.charge)
+			# Tier-up ticks so the player hears when SUPER/ULTRA is charged.
+			var tier := 2 if player.drift.charge >= 0.9 else (1 if player.drift.charge >= 0.45 else 0)
+			if tier > _drift_tier_heard:
+				_drift_tier_heard = tier
+				AudioFeedback.play("drift_tier_%d" % tier)
+		for other in _engines_3d.keys():
+			var e: AudioStreamPlayer3D = _engines_3d[other]
+			if not is_instance_valid(other):
+				continue
+			if running and not e.playing:
+				e.play(randf() * 0.4)
+			elif not running and e.playing:
+				e.stop()
+			e.pitch_scale = 0.75 + clampf(absf(other.speed) / 30.0, 0.0, 1.5) * 0.6
 	if _finish_timer > 0.0:
 		_finish_timer -= _delta
 		if _finish_timer <= 0.0:

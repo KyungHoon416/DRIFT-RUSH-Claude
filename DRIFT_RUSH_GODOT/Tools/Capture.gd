@@ -50,12 +50,15 @@ func _run() -> void:
 		room.queue_free()
 		Net.leave()
 		await _wait(2)
-	if only == "" or only == "race":
+	if only == "" or only == "race" or only == "countdown":
 		GameFlow.race_config = {"mode": "speed", "map": "sakura_valley", "laps": 3, "bots": 7, "online": false, "seed": 3}
 		var w: RaceWorld = load("res://Scenes/Race/RaceWorld.tscn").instantiate()
 		add_child(w)
 		await _wait(40)
 		await _shot("09a_race_countdown")
+		if only == "countdown":
+			get_tree().quit()
+			return
 		await _wait(170)
 		await _shot("09b_race_start")
 		await _wait(300)
