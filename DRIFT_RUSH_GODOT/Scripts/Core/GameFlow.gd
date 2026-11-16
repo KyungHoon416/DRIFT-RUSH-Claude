@@ -113,6 +113,7 @@ func goto(key: String) -> void:
 	previous_scene = current_scene_key
 	current_scene_key = key
 	last_goto = key
+	print("[GameFlow] goto -> %s" % key)
 	if test_mode:
 		return
 	get_tree().paused = false

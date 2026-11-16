@@ -133,8 +133,25 @@ func set_item(item_label: String) -> void:
 	b.queue_redraw()
 
 
+const MOUSE_INDEX := -100
+
+
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree():
+		return
+	# Desktop: drive the virtual buttons with the mouse directly (touch emulation
+	# is off so normal UI buttons always receive plain mouse clicks).
+	if event is InputEventMouseButton and not OS.has_feature("mobile"):
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				for action in buttons.keys():
+					if (buttons[action] as VButton).hit(mb.position):
+						_press(MOUSE_INDEX, action)
+						get_viewport().set_input_as_handled()
+						break
+			else:
+				_release(MOUSE_INDEX)
 		return
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
