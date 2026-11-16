@@ -22,6 +22,7 @@ void fragment() {
 
 var _t := 0.0
 var _pulse: Array[MeshInstance3D] = []
+var _pulse_rings: Array[MeshInstance3D] = []
 
 
 func _define_track() -> void:
@@ -40,11 +41,11 @@ func _define_track() -> void:
 		"sky_top": Color(0.05, 0.03, 0.16), "sky_horizon": Color(0.35, 0.12, 0.45),
 		"ground": Color(0.12, 0.12, 0.2), "ground_horizon": Color(0.2, 0.08, 0.3),
 		"asphalt": Color(0.16, 0.16, 0.22), "lines": Color(0.3, 0.9, 1.0), "center": Color(1.0, 0.35, 0.8),
-		"line_emission": 1.5,
+		"line_emission": 1.5, "road_roughness": 0.25, "road_metallic": 0.35,
 		"kerb_a": Color(0.2, 0.85, 1.0), "kerb_b": Color(1.0, 0.25, 0.75),
 		"wall_a": Color(0.15, 0.9, 1.0), "wall_b": Color(1.0, 0.3, 0.8), "wall_emission": 0.9,
 		"sun_color": Color(0.6, 0.55, 1.0), "sun_energy": 0.45, "sun_angle": Vector3(-60, 40, 0),
-		"ambient_energy": 0.55, "fog_color": Color(0.35, 0.15, 0.45), "fog_density": 0.004,
+		"ambient_energy": 0.8, "fog_color": Color(0.35, 0.15, 0.45), "fog_density": 0.004,
 		"glow": 0.9, "night": true, "petals": false,
 	}, true)
 
@@ -53,9 +54,16 @@ func _process(delta: float) -> void:
 	_t += delta
 	for i in _pulse.size():
 		_pulse[i].scale = Vector3.ONE * (1.0 + 0.06 * sin(_t * 3.0 + i))
+	for r in _pulse_rings:
+		r.rotate_object_local(Vector3.UP, delta * 0.6)
 
 
 func _decorate() -> void:
+	add_grandstand(45.0, -1.0, 36.0, Color(0.6, 0.2, 1.0))
+	add_tire_barriers(Color(0.2, 0.85, 1.0), Color(1.0, 0.3, 0.8))
+	_billboards()
+	_holo_rings()
+	_moon_and_skyline()
 	_buildings(float(quality.get("tree_density", 1.0)))
 	_neon_gates()
 	_street_lights()
@@ -73,7 +81,7 @@ func _buildings(density: float) -> void:
 		transforms.append(Transform3D(t.basis.scaled(Vector3(w, h, w)), t.origin + Vector3(0, h / 2.0, 0)))
 	for i in int(120 * density):
 		var p := Vector3(_rng.randf_range(-150, 330), 0, _rng.randf_range(-230, 260))
-		if is_clear_of_road(p, 14.0):
+		if is_clear_of_road(p, 14.0) and not is_excluded(p):
 			var h := _rng.randf_range(20, 90)
 			var w := _rng.randf_range(10, 22)
 			transforms.append(Transform3D(Basis().scaled(Vector3(w, h, w)), p + Vector3(0, h / 2.0, 0)))
@@ -89,6 +97,77 @@ func _buildings(density: float) -> void:
 	mmi.multimesh = mm
 	mmi.material_override = m
 	decor_root.add_child(mmi)
+
+
+func _billboards() -> void:
+	var slogans := ["DRIFT RUSH", "BOOST!", "NEON CITY", "ITEM RACE", "TURBO", "GO GO GO"]
+	var cols := [Color(1.0, 0.3, 0.8), Color(0.2, 0.9, 1.0), Color(1.0, 0.8, 0.2), Color(0.6, 0.4, 1.0)]
+	var d := 30.0
+	var i := 0
+	while d < length - 20.0:
+		var side := 1.0 if i % 2 == 0 else -1.0
+		var t := transform_at(d, side * (half_width() + KERB_W + 4.5))
+		var n := Node3D.new()
+		decor_root.add_child(n)
+		n.global_transform = t
+		n.rotate_object_local(Vector3.UP, deg_to_rad(side * 70.0))
+		var col: Color = cols[i % cols.size()]
+		MeshFactory.add(n, MeshFactory.cylinder(0.2, 0.25, 6.0, 8), MeshFactory.mat(Color(0.15, 0.15, 0.22), 0.4, 0.6), Vector3(0, 3.0, 0))
+		MeshFactory.add(n, MeshFactory.box(Vector3(8.4, 3.4, 0.3)), MeshFactory.mat(Color(0.05, 0.05, 0.12), 0.3, 0.3), Vector3(0, 7.5, 0))
+		MeshFactory.add(n, MeshFactory.box(Vector3(8.6, 0.15, 0.35)), MeshFactory.mat(col, 0.2, 0.0, 4.0), Vector3(0, 9.25, 0))
+		MeshFactory.add(n, MeshFactory.box(Vector3(8.6, 0.15, 0.35)), MeshFactory.mat(col, 0.2, 0.0, 4.0), Vector3(0, 5.75, 0))
+		for face in [1.0, -1.0]:
+			var l := MeshFactory.label3d(slogans[i % slogans.size()], 220, col.lightened(0.5), col.darkened(0.4))
+			l.position = Vector3(0, 7.5, 0.17 * face)
+			if face < 0.0:
+				l.rotation_degrees = Vector3(0, 180, 0)
+			n.add_child(l)
+		d += 95.0
+		i += 1
+
+
+func _holo_rings() -> void:
+	var cols := [Color(0.2, 0.9, 1.0, 0.75), Color(1.0, 0.3, 0.8, 0.75)]
+	for k in 4:
+		var t := transform_at(length * (0.12 + 0.22 * k), 0.0)
+		var ring := TorusMesh.new()
+		ring.inner_radius = 9.2
+		ring.outer_radius = 9.7
+		ring.rings = 48
+		var m := MeshFactory.mat(cols[k % 2], 0.2, 0.0, 3.0, 0.0)
+		var mi := MeshFactory.add(decor_root, ring, m)
+		mi.global_transform = t
+		mi.position += Vector3.UP * 3.5
+		mi.rotate_object_local(Vector3.RIGHT, PI / 2.0)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_pulse_rings.append(mi)
+
+
+func _moon_and_skyline() -> void:
+	var moon := MeshFactory.add(decor_root, MeshFactory.sphere(28.0, 24, 12), MeshFactory.mat(Color(0.95, 0.9, 1.0), 1.0, 0.0, 2.0, 0.0), Vector3(-260, 210, -420))
+	moon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# distant skyline ring (cheap silhouettes with lit windows via the same shader)
+	var sh := Shader.new()
+	sh.code = WINDOW_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = MeshFactory.box(Vector3.ONE)
+	mm.instance_count = 70
+	for i in 70:
+		var ang := TAU * i / 70.0
+		var r := _rng.randf_range(420, 520)
+		var h := _rng.randf_range(60, 170)
+		var w := _rng.randf_range(25, 45)
+		mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, -ang).scaled(Vector3(w, h, w)), Vector3(100 + cos(ang) * r, h / 2.0, sin(ang) * r)))
+		mm.set_instance_color(i, Color.WHITE)
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	decor_root.add_child(mi)
 
 
 func _neon_gates() -> void:

@@ -157,3 +157,49 @@ func test_respawn_after_falling() -> void:
 	check(k.global_position.y > -1.0, "kart respawned on track after falling (y=%.1f)" % k.global_position.y)
 	var lat := absf(track.lateral_distance(k.global_position, track.closest_offset(k.global_position)))
 	check(lat < 2.0, "respawn point on centre line")
+
+
+func test_drift_release_gives_instant_boost() -> void:
+	var k := _setup()
+	k.control_enabled = true
+	var tiers: Array = []
+	k.drift_boost.connect(func(t): tiers.append(t))
+	await physics_frames(75)
+	k.drift_input = true
+	k.steer_input = 0.35
+	await physics_frames(30)   # ~0.5 s drift
+	var before := k.speed
+	k.drift_input = false
+	k.steer_input = 0.0
+	await physics_frames(1)
+	eq(tiers, [1], "short drift → tier 1 instant boost")
+	check(k.speed > before + 2.0, "speed jumps immediately on release (%.1f → %.1f)" % [before, k.speed])
+	check(k.boost.active, "boost active right after release")
+
+
+func test_kart_pushed_into_wall_stays_inside() -> void:
+	var k := _setup()
+	var t := track.transform_at(50.0, track.half_width() + TrackBuilder.KERB_W - 0.4, 0.05)
+	k.place(t)
+	await physics_frames(5)
+	var f := track.frame_at(50.0)
+	for i in 300:
+		k.receive_bump(f["right"], 1.0)   # keep shoving toward the right wall
+		await tree().physics_frame
+	var lat := track.lateral_distance(k.global_position, track.closest_offset(k.global_position))
+	check(lat < track.half_width() + TrackBuilder.KERB_W + 0.35, "repeated bumps cannot push a kart through the wall (lateral %.2f)" % lat)
+
+
+func test_kart_outside_walls_is_recovered() -> void:
+	var k := _setup()
+	var rm := RaceManager.new()
+	spawn(rm)
+	var arr: Array[KartController] = [k]
+	rm.setup(track, arr, 3)
+	rm.start_race_now()
+	await physics_frames(30)
+	var outside := track.transform_at(60.0, track.half_width() + 6.0, 0.1)
+	k.place(outside)
+	await physics_frames(45)
+	var lat := absf(track.lateral_distance(k.global_position, track.closest_offset(k.global_position)))
+	check(lat < 2.0, "kart that escaped the walls is put back on the track (lateral %.2f)" % lat)

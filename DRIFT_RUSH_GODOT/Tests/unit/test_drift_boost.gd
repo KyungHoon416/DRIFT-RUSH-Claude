@@ -14,15 +14,20 @@ func test_drift_start_conditions() -> void:
 func test_drift_charge_tiers() -> void:
 	var d := DriftSystem.new()
 	d.update(0.016, true, 0.8, 20.0, true)
-	for i in 30:
+	for i in 8:
 		d.update(0.016, true, 0.8, 20.0, true)
 	eq(d.update(0.016, false, 0.8, 20.0, true), "end", "release ends")
-	eq(d.reward_tier(), 0, "short drift: no reward")
+	eq(d.reward_tier(), 0, "tap (< 0.3 s): no reward")
+	d.update(0.016, true, 0.8, 20.0, true)
+	for i in 25:
+		d.update(0.016, true, 0.8, 20.0, true)
+	d.update(0.016, false, 0.8, 20.0, true)
+	eq(d.reward_tier(), 1, "short drift (0.4 s): instant BOOST")
 	d.update(0.016, true, 0.8, 20.0, true)
 	for i in 200:
 		d.update(0.016, true, 0.8, 20.0, true)
 	d.update(0.016, false, 0.8, 20.0, true)
-	eq(d.reward_tier(), 2, "long drift: big mini-boost")
+	eq(d.reward_tier(), 3, "long drift: ULTRA boost")
 
 
 func test_boost_timer_and_expiry() -> void:

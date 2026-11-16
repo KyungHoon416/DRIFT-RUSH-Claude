@@ -107,6 +107,9 @@ func _spawn_karts() -> void:
 			k.setup(String(info["name"]), GameFlow.kart_color(String(info["color"])), mine)
 			add_child(k)
 			k.place(track.grid_transform(i))
+			k.model.set_number(i + 1)
+			if bool(track.theme.get("night", false)):
+				k.model.set_underglow(true, k.kart_color.lightened(0.2))
 			karts.append(k)
 			karts_by_peer[id] = k
 			if k.is_player:
@@ -135,6 +138,9 @@ func _spawn_karts() -> void:
 				bot_i += 1
 			add_child(k)
 			k.place(track.grid_transform(slot))
+			k.model.set_number(slot + 1)
+			if bool(track.theme.get("night", false)):
+				k.model.set_underglow(true, k.kart_color.lightened(0.2))
 			karts.append(k)
 			if slot == player_slot:
 				player = k

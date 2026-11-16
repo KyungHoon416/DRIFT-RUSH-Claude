@@ -9,6 +9,7 @@ extends CharacterBody3D
 
 signal impact(kind: String, strength: float)
 signal boost_started(kind: String)
+signal drift_boost(tier: int)
 signal boost_ended
 signal drift_started(direction: int)
 signal drift_ended(charge: float, tier: int)
@@ -176,8 +177,7 @@ func _physics_process(delta: float) -> void:
 		var tier := drift.reward_tier()
 		drift_ended.emit(drift.last_charge, tier)
 		if tier > 0:
-			boost.start(float(stats["mini_boost_duration"]) * tier, float(stats["boost_speed_bonus"]) * 0.6, "mini")
-			boost_started.emit("mini")
+			apply_drift_boost(tier)
 	if drift.drifting:
 		boost_gauge = minf(1.0, boost_gauge + float(stats["drift_gauge_rate"]) * delta * (0.6 + 0.4 * absf(steer)))
 
@@ -252,7 +252,7 @@ func _handle_collisions(dir: Vector3, pre_speed: float) -> void:
 				var th := atan2(-tangent.x, -tangent.z)
 				heading = lerp_angle(heading, th, 0.55 * into)
 				travel_heading = lerp_angle(travel_heading, th, 0.85)
-			global_position += hn * 0.04
+			move_and_collide(hn * 0.04)
 			if drift.drifting and into > 0.5:
 				drift.cancel()
 			_emit_impact("wall", strength)
@@ -261,7 +261,9 @@ func _handle_collisions(dir: Vector3, pre_speed: float) -> void:
 func receive_bump(push_dir: Vector3, strength: float) -> void:
 	if is_remote:
 		return
-	global_position += push_dir * 0.08 * (0.5 + strength)
+	# Collision-checked push: a kart squeezed against a wall must not be
+	# shoved through it.
+	move_and_collide(Vector3(push_dir.x, 0.0, push_dir.z) * 0.08 * (0.5 + strength))
 	speed *= lerpf(1.0, 0.92, strength)
 	_emit_impact("kart", strength * 0.8)
 
@@ -282,6 +284,18 @@ func try_use_boost() -> bool:
 	boost.start(float(stats["boost_duration"]), float(stats["boost_speed_bonus"]), "boost")
 	boost_started.emit("boost")
 	return true
+
+
+## Instant drift boost: immediate speed kick + short boost, stronger per tier.
+func apply_drift_boost(tier: int) -> void:
+	var durations: Array = stats.get("drift_boost_durations", [0.4, 0.7, 1.1])
+	var kicks: Array = stats.get("drift_boost_kicks", [3.0, 4.5, 6.0])
+	var bonus_scale: Array = stats.get("drift_boost_bonus_scale", [0.5, 0.65, 0.85])
+	var i := clampi(tier, 1, 3) - 1
+	boost.start(float(durations[i]), float(stats["boost_speed_bonus"]) * float(bonus_scale[i]), "mini")
+	speed = minf(speed + float(kicks[i]), max_speed_now() + boost.bonus)
+	boost_started.emit("mini")
+	drift_boost.emit(tier)
 
 
 func apply_turbo(duration: float, bonus: float) -> void:

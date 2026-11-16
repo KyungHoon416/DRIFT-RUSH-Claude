@@ -34,6 +34,8 @@ var touch: TouchControls
 var pause_layer: Control
 var confirm_box: Control
 var _msg_timer := 0.0
+var boost_label: Label
+var _boost_label_t := 0.0
 var _standings_rows: Array[Label] = []
 var _gauge_value := 0.0
 var _drift_value := 0.0
@@ -73,6 +75,7 @@ func setup(w: Node, r: RaceManager, k: KartController, is_online: bool, is_item:
 	r.wrong_way_changed.connect(_on_wrong_way)
 	r.kart_finished.connect(_on_finished)
 	r.kart_respawned.connect(_on_respawned)
+	k.drift_boost.connect(_on_drift_boost)
 	k.item_changed.connect(func(it: String): touch.set_item(GameFlow.item_rules.get("items", {}).get(it, {}).get("label", "")))
 	touch.set_item("")
 	_apply_safe_area()
@@ -202,6 +205,15 @@ func _build() -> void:
 	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message_label.offset_top = 120
 	root.add_child(message_label)
+
+	boost_label = UITheme.title_label("", 52, UITheme.CYAN)
+	boost_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	boost_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	boost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boost_label.offset_top = -230
+	boost_label.offset_bottom = -160
+	boost_label.pivot_offset = Vector2(200, 35)
+	root.add_child(boost_label)
 
 	# --- touch controls (bottom corners)
 	touch = TouchControls.new()
@@ -337,6 +349,10 @@ func _process(delta: float) -> void:
 	gauge.queue_redraw()
 	drift_bar.queue_redraw()
 	touch.set_boost_fill(kart.boost_gauge)
+	if _boost_label_t > 0.0:
+		_boost_label_t -= delta
+		boost_label.modulate.a = clampf(_boost_label_t / 0.4, 0.0, 1.0)
+		boost_label.scale = boost_label.scale.lerp(Vector2.ONE, minf(1.0, delta * 6.0))
 	if _msg_timer > 0.0:
 		_msg_timer -= delta
 		if _msg_timer <= 0.0:
@@ -385,6 +401,16 @@ func _on_countdown(n: int) -> void:
 		center_label.add_theme_color_override("font_color", UITheme.ORANGE)
 		AudioFeedback.play("go")
 		get_tree().create_timer(0.9, true, false, true).timeout.connect(_clear_go)
+
+
+func _on_drift_boost(tier: int) -> void:
+	var names := ["", "BOOST!", "SUPER BOOST!", "ULTRA BOOST!"]
+	var cols := [Color.WHITE, Color(1.0, 0.7, 0.25), UITheme.CYAN, UITheme.PURPLE.lightened(0.3)]
+	boost_label.text = names[clampi(tier, 1, 3)]
+	boost_label.add_theme_color_override("font_color", cols[clampi(tier, 1, 3)])
+	boost_label.scale = Vector2.ONE * (1.0 + 0.15 * tier)
+	boost_label.modulate.a = 1.0
+	_boost_label_t = 0.9
 
 
 func _clear_go() -> void:

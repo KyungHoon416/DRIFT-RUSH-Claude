@@ -63,6 +63,7 @@ func _physics_process(delta: float) -> void:
 	if global_position.y < target.global_position.y + 0.6:
 		global_position.y = target.global_position.y + 0.6
 	_look()
+	_hide_blocking_karts()
 	var ratio := clampf(absf(target.speed) / 30.0, 0.0, 1.5)
 	var target_fov := base_fov + ratio * 6.0 + (8.0 if target.boost.active else 0.0)
 	fov = lerpf(fov, target_fov, 1.0 - exp(-4.0 * delta))
@@ -80,3 +81,16 @@ func _look() -> void:
 	var tgt := target.global_position + fwd * look_ahead + Vector3.UP * look_height
 	if global_position.distance_to(tgt) > 0.01:
 		look_at(tgt, Vector3.UP)
+
+
+## Other karts right in front of the lens would fill the screen: hide them
+## while they are closer than HIDE_DIST to the camera.
+const HIDE_DIST := 3.4
+
+
+func _hide_blocking_karts() -> void:
+	for n in get_tree().get_nodes_in_group("karts"):
+		var k := n as KartController
+		if k == null or k == target or k.model == null:
+			continue
+		k.model.visible = global_position.distance_to(k.global_position + Vector3.UP * 0.8) > HIDE_DIST

@@ -37,6 +37,7 @@ var wrong_way: Dictionary = {}       # kart -> bool
 var _wrong_timer: Dictionary = {}
 var _stuck_timer: Dictionary = {}
 var _safe_offset: Dictionary = {}
+var _outside_timer: Dictionary = {}
 var _finish_counter := 0
 var _grace_left := -1.0
 var _last_tick := 4
@@ -123,6 +124,15 @@ func _update_karts(delta: float) -> void:
 		# Off-road detection (grass beyond kerbs) and safe point tracking.
 		var lat := absf(track.lateral_distance(k.global_position, off))
 		k.offroad = lat > track.half_width() + TrackBuilder.KERB_W + 0.3
+		# Safety net: centre beyond the wall line = escaped the track → recover.
+		if lat > track.half_width() + TrackBuilder.KERB_W + 0.6:
+			_outside_timer[k] = float(_outside_timer.get(k, 0.0)) + delta
+			if float(_outside_timer[k]) > 0.5:
+				_outside_timer[k] = 0.0
+				respawn(k)
+				continue
+		else:
+			_outside_timer[k] = 0.0
 		if not k.offroad and k.is_on_floor():
 			_safe_offset[k] = off
 		# Wrong way

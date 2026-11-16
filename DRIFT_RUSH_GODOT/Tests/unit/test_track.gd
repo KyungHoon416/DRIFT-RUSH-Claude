@@ -68,3 +68,16 @@ func test_neon_city_playable_structure() -> void:
 	var wall_offset := t.half_width() + TrackBuilder.KERB_W + 0.8
 	check(t.min_radius() > wall_offset + 1.0, "neon min radius %.1f > wall offset %.1f (walls cannot self-intersect)" % [t.min_radius(), wall_offset])
 	check(bool(t.theme["night"]), "night theme")
+
+
+func test_road_never_below_ground() -> void:
+	for path in ["res://Scenes/Tracks/SakuraValley.tscn", "res://Scenes/Tracks/NeonCity.tscn"]:
+		var t: TrackBuilder = load(path).instantiate()
+		spawn(t)
+		await physics_frames(1)
+		var lowest := INF
+		var d := 0.0
+		while d < t.length:
+			lowest = minf(lowest, (t.frame_at(d)["pos"] as Vector3).y)
+			d += 1.0
+		check(lowest >= 0.0, "%s road surface stays above the grass (lowest centre y %.3f)" % [path.get_file(), lowest])

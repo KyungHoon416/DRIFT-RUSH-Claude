@@ -51,7 +51,13 @@ func _process(delta: float) -> void:
 
 func _decorate() -> void:
 	var density := float(quality.get("tree_density", 1.0))
+	add_grandstand(42.0, -1.0, 40.0, Color(1.0, 0.45, 0.65))
+	add_grandstand(length * 0.79, 1.0, 30.0, Color(0.3, 0.55, 1.0))
+	add_bunting(8.0, 95.0, 1.0)
+	add_bunting(length - 60.0, length - 12.0, -1.0)
+	add_tire_barriers()
 	_cherry_trees(density)
+	_flowers(density)
 	_bushes(density)
 	_windmill(Vector3(-55, 0, -120))
 	_waterfall(Vector3(70, 0, -245))
@@ -119,9 +125,38 @@ func _cherry_trees(density: float) -> void:
 	var tries := int(160 * density)
 	for i in tries:
 		var p := Vector3(_rng.randf_range(-170, 330), 0, _rng.randf_range(-230, 250))
-		if is_clear_of_road(p, 6.0) and p.distance_to(Vector3(-55, 0, -120)) > 14.0 and p.distance_to(Vector3(70, 0, -245)) > 30.0:
+		if is_clear_of_road(p, 6.0) and not is_excluded(p) and p.distance_to(Vector3(-55, 0, -120)) > 14.0 and p.distance_to(Vector3(70, 0, -245)) > 30.0:
 			spots.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), p))
 	_tree_multimeshes(spots)
+
+
+func _flowers(density: float) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = MeshFactory.sphere(0.18, 6, 3)
+	var cols := [Color(1.0, 0.55, 0.75), Color(1.0, 0.9, 0.35), Color(1.0, 1.0, 1.0), Color(0.75, 0.55, 1.0), Color(1.0, 0.4, 0.4)]
+	var xs: Array[Transform3D] = []
+	var cs: Array[Color] = []
+	var patches := int(70 * density)
+	for i in patches:
+		var c := Vector3(_rng.randf_range(-160, 320), 0, _rng.randf_range(-220, 240))
+		if not is_clear_of_road(c, 4.0) or is_excluded(c):
+			continue
+		var col: Color = cols[_rng.randi() % cols.size()]
+		for k in 14:
+			var p := c + Vector3(_rng.randf_range(-3.5, 3.5), 0.12, _rng.randf_range(-3.5, 3.5))
+			xs.append(Transform3D(Basis().scaled(Vector3.ONE * _rng.randf_range(0.7, 1.3)), p))
+			cs.append(col)
+	mm.instance_count = xs.size()
+	for i in xs.size():
+		mm.set_instance_transform(i, xs[i])
+		mm.set_instance_color(i, cs[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = MeshFactory.vertex_color_mat(0.8)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	decor_root.add_child(mi)
 
 
 func _bushes(density: float) -> void:

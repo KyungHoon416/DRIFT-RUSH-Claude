@@ -89,3 +89,17 @@ func test_wrong_way_detection() -> void:
 		w.player.steer_input = 0.0
 		await tree().physics_frame
 	check(flagged[0], "driving backwards raises WRONG WAY")
+
+
+func test_camera_hides_kart_blocking_the_lens() -> void:
+	GameFlow.race_config = {"mode": "speed", "map": "sakura_valley", "laps": 3, "bots": 1, "online": false, "seed": 1}
+	var w: RaceWorld = load("res://Scenes/Race/RaceWorld.tscn").instantiate()
+	spawn(w)
+	await physics_frames(3)
+	var other: KartController = w.karts[0] if w.karts[0] != w.player else w.karts[1]
+	other.global_position = w.camera.global_position + Vector3.DOWN * 0.8
+	await physics_frames(2)
+	check(not other.model.visible, "kart inside the camera's near zone is hidden")
+	other.global_position = w.player.global_position + w.player.forward() * 15.0
+	await physics_frames(2)
+	check(other.model.visible, "kart ahead is visible again")

@@ -18,6 +18,8 @@ uniform vec4 asphalt : source_color = vec4(0.36, 0.37, 0.42, 1.0);
 uniform vec4 line_color : source_color = vec4(0.97, 0.97, 0.97, 1.0);
 uniform vec4 center_color : source_color = vec4(1.0, 0.86, 0.35, 1.0);
 uniform float emission_lines = 0.0;
+uniform float roughness = 0.82;
+uniform float metallic = 0.0;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 void fragment() {
 	vec2 uv = UV; // x: 0..1 across the road, y: metres along the track
@@ -36,8 +38,12 @@ void fragment() {
 		float chk = mod(floor(uv.x * 14.0) + floor(uv.y * 1.6), 2.0);
 		c = mix(vec3(0.08), vec3(0.97), chk);
 	}
+	// subtle tyre marks along the racing line
+	float tm = smoothstep(0.03, 0.0, abs(uv.x - 0.37)) + smoothstep(0.03, 0.0, abs(uv.x - 0.63));
+	c *= 1.0 - 0.12 * tm * (0.5 + 0.5 * hash(floor(uv * vec2(1.0, 0.25))));
 	ALBEDO = c;
-	ROUGHNESS = 0.82;
+	ROUGHNESS = roughness;
+	METALLIC = metallic;
 	EMISSION = em;
 }
 """
@@ -69,6 +75,17 @@ var quality: Dictionary = {}
 var world_env: WorldEnvironment
 var sun: DirectionalLight3D
 var decor_root: Node3D
+var crowd_nodes: Array[Node3D] = []
+## Areas kept free of procedural scenery: [{pos: Vector3, r: float}]
+var exclusions: Array[Dictionary] = []
+
+
+func is_excluded(p: Vector3) -> bool:
+	for e in exclusions:
+		var c: Vector3 = e["pos"]
+		if Vector2(p.x - c.x, p.z - c.z).length() < float(e["r"]):
+			return true
+	return false
 var _rng := RandomNumberGenerator.new()
 
 
@@ -108,6 +125,7 @@ func build() -> void:
 	_build_checkpoints()
 	_build_start_gantry()
 	_compute_item_spots()
+	_build_grid_marks()
 	_decorate()
 
 
@@ -128,6 +146,9 @@ static func make_closed_curve(pts: PackedVector3Array, interval := 1.0) -> Curve
 func frame_at(d: float) -> Dictionary:
 	d = fposmod(d, length)
 	var p := curve.sample_baked(d, true)
+	# Bezier interpolation can dip slightly below ground level between a flat
+	# point and a raised one; never let the road sink under the grass.
+	p.y = maxf(p.y, 0.0)
 	var a := curve.sample_baked(fposmod(d - 1.5, length), true)
 	var b := curve.sample_baked(fposmod(d + 1.5, length), true)
 	var fwd := b - a
@@ -315,6 +336,8 @@ func _build_road() -> void:
 	rm.set_shader_parameter("line_color", theme["lines"])
 	rm.set_shader_parameter("center_color", theme["center"])
 	rm.set_shader_parameter("emission_lines", theme["line_emission"])
+	rm.set_shader_parameter("roughness", float(theme.get("road_roughness", 0.82)))
+	rm.set_shader_parameter("metallic", float(theme.get("road_metallic", 0.0)))
 	var road := MeshFactory.add(self, road_mesh, rm)
 	road.name = "Road"
 	var km := MeshFactory.add(self, kerb.commit(), MeshFactory.vertex_color_mat(0.6))
@@ -479,7 +502,145 @@ func roadside_points(spacing: float, min_off: float, max_off: float, jitter := 2
 			var f := frame_at(d + _rng.randf_range(-jitter, jitter))
 			var p: Vector3 = f["pos"] + f["right"] * side * (half_width() + KERB_W + off)
 			p.y = 0.0
-			if is_clear_of_road(p, min_off * 0.6):
+			if is_clear_of_road(p, min_off * 0.6) and not is_excluded(p):
 				out.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), p))
 		d += spacing
 	return out
+
+
+# ------------------------------------------------------------------ shared scenery helpers
+func _build_grid_marks() -> void:
+	var m := MeshFactory.mat(Color(0.97, 0.97, 0.97), 0.8)
+	for slot in 8:
+		var g := Node3D.new()
+		decor_root.add_child(g)
+		g.global_transform = grid_transform(slot)
+		g.position.y -= 0.03
+		MeshFactory.add(g, MeshFactory.box(Vector3(2.4, 0.02, 0.18)), m, Vector3(0, 0, -1.8))
+		MeshFactory.add(g, MeshFactory.box(Vector3(0.18, 0.02, 1.2)), m, Vector3(-1.1, 0, -1.3))
+		MeshFactory.add(g, MeshFactory.box(Vector3(0.18, 0.02, 1.2)), m, Vector3(1.1, 0, -1.3))
+
+
+## Grandstand with a cheering crowd (MultiMesh) facing the track at offset d.
+func add_grandstand(d: float, side: float, length_m := 36.0, roof_col := Color(0.95, 0.35, 0.55)) -> Node3D:
+	var t := transform_at(d, side * (half_width() + KERB_W + 6.5))
+	var n := Node3D.new()
+	n.name = "Grandstand"
+	decor_root.add_child(n)
+	n.global_transform = t
+	n.rotate_object_local(Vector3.UP, deg_to_rad(90.0 * side))
+	var concrete := MeshFactory.mat(Color(0.85, 0.86, 0.9), 0.9)
+	var seat := MeshFactory.mat(Color(0.25, 0.45, 0.9), 0.6)
+	for row in 5:
+		MeshFactory.add(n, MeshFactory.box(Vector3(length_m, 0.8, 1.6)), concrete, Vector3(0, 0.4 + row * 0.8, 1.6 * row))
+		MeshFactory.add(n, MeshFactory.box(Vector3(length_m - 1.0, 0.25, 0.5)), seat, Vector3(0, 0.95 + row * 0.8, 1.6 * row - 0.2))
+	for px in [-length_m / 2.0 + 0.5, 0.0, length_m / 2.0 - 0.5]:
+		MeshFactory.add(n, MeshFactory.cylinder(0.18, 0.18, 7.5, 8), concrete, Vector3(px, 3.75, 7.4))
+	MeshFactory.add(n, MeshFactory.box(Vector3(length_m + 2.0, 0.3, 9.0)), MeshFactory.mat(roof_col, 0.5), Vector3(0, 7.6, 3.4), Vector3(-8, 0, 0))
+	var lbl := MeshFactory.label3d("DRIFT RUSH", 200, Color.WHITE, roof_col.darkened(0.5))
+	lbl.position = Vector3(0, 7.2, -1.15)
+	lbl.rotation_degrees = Vector3(0, 180, 0)
+	n.add_child(lbl)
+	# crowd
+	var shirts := [Color(1.0, 0.45, 0.55), Color(0.3, 0.6, 1.0), Color(1.0, 0.85, 0.3), Color(0.5, 0.9, 0.5),
+		Color(0.85, 0.5, 1.0), Color(1.0, 0.6, 0.2), Color(0.95, 0.95, 0.95)]
+	var count := int(length_m / 1.1) * 5
+	count = int(count * clampf(float(quality.get("tree_density", 1.0)), 0.4, 1.0))
+	var bodies := MultiMesh.new()
+	bodies.transform_format = MultiMesh.TRANSFORM_3D
+	bodies.use_colors = true
+	bodies.mesh = MeshFactory.capsule(0.28, 0.9)
+	bodies.instance_count = count
+	var heads := MultiMesh.new()
+	heads.transform_format = MultiMesh.TRANSFORM_3D
+	heads.use_colors = true
+	heads.mesh = MeshFactory.sphere(0.22, 8, 5)
+	heads.instance_count = count
+	for i in count:
+		var row := i % 5
+		var x := -length_m / 2.0 + 1.0 + _rng.randf() * (length_m - 2.0)
+		var p := Vector3(x, 1.5 + row * 0.8, 1.6 * row + 0.2)
+		bodies.set_instance_transform(i, Transform3D(Basis(), p))
+		bodies.set_instance_color(i, shirts[_rng.randi() % shirts.size()])
+		heads.set_instance_transform(i, Transform3D(Basis(), p + Vector3(0, 0.62, 0)))
+		heads.set_instance_color(i, Color(1.0, 0.82, 0.68).darkened(_rng.randf() * 0.4))
+	for mm in [bodies, heads]:
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = MeshFactory.vertex_color_mat(0.8)
+		n.add_child(mi)
+	crowd_nodes.append(n)
+	exclusions.append({"pos": n.global_transform * Vector3(0, 0, 3.0), "r": length_m * 0.62})
+	return n
+
+
+## Strings of triangle flags (bunting) on poles along one side of the road.
+func add_bunting(d0: float, d1: float, side: float) -> void:
+	var cols := [Color(1.0, 0.3, 0.45), Color(1.0, 0.85, 0.2), Color(0.3, 0.65, 1.0), Color(1.0, 1.0, 1.0), Color(0.5, 0.9, 0.5)]
+	var pole_m := MeshFactory.mat(Color(0.9, 0.9, 0.95), 0.4, 0.5)
+	var flags := MultiMesh.new()
+	flags.transform_format = MultiMesh.TRANSFORM_3D
+	flags.use_colors = true
+	var pm := PrismMesh.new()
+	pm.size = Vector3(0.5, 0.6, 0.03)
+	flags.mesh = pm
+	var spots: Array[Transform3D] = []
+	var lat := side * (half_width() + KERB_W + 1.0)
+	var d := d0
+	var prev := Vector3.INF
+	while d <= d1:
+		var top := transform_at(d, lat).origin + Vector3.UP * 4.0
+		MeshFactory.add(decor_root, MeshFactory.cylinder(0.08, 0.1, 4.0, 6), pole_m, top - Vector3.UP * 2.0)
+		if prev != Vector3.INF:
+			for k in 8:
+				var w := (k + 0.5) / 8.0
+				var p := prev.lerp(top, w) + Vector3.DOWN * (sin(w * PI) * 0.6 + 0.35)
+				var dir := (top - prev).normalized()
+				var b := Basis.looking_at(dir.cross(Vector3.UP), Vector3.UP).rotated(Vector3.UP, 0.0)
+				spots.append(Transform3D(b.rotated(dir, PI), p))
+		prev = top
+		d += 9.0
+	flags.instance_count = spots.size()
+	for i in spots.size():
+		flags.set_instance_transform(i, spots[i])
+		flags.set_instance_color(i, cols[i % cols.size()])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = flags
+	var fm := StandardMaterial3D.new()
+	fm.vertex_color_use_as_albedo = true
+	fm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	fm.roughness = 0.7
+	mi.material_override = fm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	decor_root.add_child(mi)
+
+
+## Stacked red/white tyre barriers on the outside of every sharp corner.
+func add_tire_barriers(col_a := Color(0.9, 0.15, 0.2), col_b := Color(0.97, 0.97, 0.97)) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = MeshFactory.cylinder(0.45, 0.45, 0.32, 12)
+	var xs: Array[Transform3D] = []
+	var cs: Array[Color] = []
+	var d := 0.0
+	while d < length:
+		var a: Vector3 = frame_at(d - 10.0)["flat"]
+		var b: Vector3 = frame_at(d + 10.0)["flat"]
+		if a.angle_to(b) > 0.5:
+			var f := frame_at(d)
+			var turn_right := (b - a).dot(f["right"]) > 0.0
+			var side := -1.0 if turn_right else 1.0
+			var base := transform_at(d, side * (half_width() + KERB_W + 1.6)).origin
+			for h in 3:
+				xs.append(Transform3D(Basis(), base + Vector3.UP * (0.16 + h * 0.33)))
+				cs.append(col_a if (int(d / 3.0) + h) % 2 == 0 else col_b)
+		d += 1.6
+	mm.instance_count = xs.size()
+	for i in xs.size():
+		mm.set_instance_transform(i, xs[i])
+		mm.set_instance_color(i, cs[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = MeshFactory.vertex_color_mat(0.6)
+	decor_root.add_child(mi)
