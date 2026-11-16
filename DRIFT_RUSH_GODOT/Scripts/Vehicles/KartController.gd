@@ -136,6 +136,10 @@ func speed_kmh() -> float:
 
 func _physics_process(delta: float) -> void:
 	if is_remote:
+		# Ghost of another player: position comes from the network; only the
+		# server-side item cooldown needs to tick here.
+		if item_cooldown > 0.0:
+			item_cooldown = maxf(0.0, item_cooldown - delta)
 		_animate(delta)
 		return
 	sim_time += delta

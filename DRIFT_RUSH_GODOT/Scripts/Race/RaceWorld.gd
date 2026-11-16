@@ -40,37 +40,45 @@ func _ready() -> void:
 	race.authoritative = (not online) or Net.is_host()
 	race.auto_finish_on_player = not online
 
-	camera = ChaseCamera.new()
-	camera.name = "ChaseCamera"
-	add_child(camera)
-	camera.target = player
-	camera.current = true
-	camera.snap()
-	_add_petals()
+	if player:
+		camera = ChaseCamera.new()
+		camera.name = "ChaseCamera"
+		add_child(camera)
+		camera.target = player
+		camera.current = true
+		camera.snap()
+		_add_petals()
 
 	if String(config.get("mode")) == "item":
 		items = ItemManager.new()
 		items.name = "ItemManager"
 		add_child(items)
-		items.setup(track, race)
+		var role := "offline"
+		if online:
+			role = "server" if Net.is_host() else "client"
+		items.setup(track, race, role, karts_by_peer)
 
-	hud = preload("res://Scenes/UI/RaceHUD.tscn").instantiate()
-	add_child(hud)
-	hud.setup(self, race, player, online, items != null)
-	hud.pause_requested.connect(_on_pause)
-	hud.exit_requested.connect(_on_exit)
+	if player:
+		hud = preload("res://Scenes/UI/RaceHUD.tscn").instantiate()
+		add_child(hud)
+		hud.setup(self, race, player, online, items != null)
+		hud.pause_requested.connect(_on_pause)
+		hud.exit_requested.connect(_on_exit)
 
 	race.race_started.connect(_on_race_started)
 	race.kart_finished.connect(_on_kart_finished)
 	race.race_finished.connect(_on_race_finished)
-	_wire_feedback(player)
-	AudioFeedback.play_bgm(true)
+	if player:
+		_wire_feedback(player)
+		AudioFeedback.play_bgm(true)
 
 	if online:
 		session = RaceSession.new()
 		session.name = "RaceSession"
 		add_child(session)
 		session.setup(race, player, karts_by_peer)
+		if hud:
+			session.corrected.connect(func(): hud.show_message("서버 위치 보정", 1.2, UITheme.CYAN))
 		Net.countdown_requested.connect(_on_net_countdown)
 		Net.results_received.connect(_on_net_results)
 		Net.disconnected.connect(_on_net_disconnected)
@@ -94,8 +102,9 @@ func _spawn_karts() -> void:
 			var info: Dictionary = Net.players[id]
 			var k: KartController = kart_scene.instantiate()
 			k.peer_id = id
-			k.is_remote = id != Net.my_id()
-			k.setup(String(info["name"]), GameFlow.kart_color(String(info["color"])), id == Net.my_id())
+			var mine := id == Net.my_id() and Net.has_local_player()
+			k.is_remote = not mine
+			k.setup(String(info["name"]), GameFlow.kart_color(String(info["color"])), mine)
 			add_child(k)
 			k.place(track.grid_transform(i))
 			karts.append(k)
@@ -136,6 +145,8 @@ func _spawn_karts() -> void:
 				ai.use_items = String(config.get("mode")) == "item"
 				k.add_child(ai)
 				k.model.set_name_tag(k.display_name, Color.WHITE)
+	if player == null:
+		return   # dedicated server: every kart is a network ghost
 	if GameFlow.autopilot:
 		_autopilot = AIDriver.new()
 		_autopilot.kart = player
@@ -200,7 +211,11 @@ func _process(_delta: float) -> void:
 	if _finish_timer > 0.0:
 		_finish_timer -= _delta
 		if _finish_timer <= 0.0:
-			GameFlow.goto("result")
+			if online and not Net.has_local_player():
+				Net.back_to_room()
+				GameFlow.goto("bootstrap")   # dedicated server: back to waiting room
+			else:
+				GameFlow.goto("result")
 
 
 func _on_race_started() -> void:
@@ -226,6 +241,8 @@ func _on_race_finished(results: Array) -> void:
 
 
 func _store_results(results: Array) -> void:
+	if _finish_timer > 0.0 or GameFlow.last_result.get("_token") == get_instance_id():
+		return   # host receives its own broadcast too
 	var best := -1.0
 	var total := -1.0
 	for r in results:
@@ -236,8 +253,10 @@ func _store_results(results: Array) -> void:
 			total = float(r["time"])
 	GameFlow.last_result = {
 		"results": results, "map": config.get("map"), "mode": config.get("mode"), "online": online,
-		"laps": config.get("laps"), "verified": false,
+		"laps": config.get("laps"), "verified": false, "_token": get_instance_id(),
 	}
+	if online and not Net.has_local_player():
+		print("[Server] race finished: ", JSON.stringify(results))
 	if not online and total > 0.0:
 		SaveSettings.record_local_best(String(config.get("map")), best, total)
 	Backend.submit_race_result(GameFlow.last_result)
@@ -288,7 +307,8 @@ func _on_net_results(results: Array) -> void:
 
 
 func _on_net_disconnected(reason: String) -> void:
-	hud.show_message(reason, 4.0, UITheme.RED)
+	if hud:
+		hud.show_message(reason, 4.0, UITheme.RED)
 	AudioFeedback.stop_race_loops()
 	get_tree().create_timer(3.0).timeout.connect(func(): GameFlow.goto("lobby"))
 
@@ -296,6 +316,7 @@ func _on_net_disconnected(reason: String) -> void:
 func _on_peer_left(id: int) -> void:
 	if karts_by_peer.has(id):
 		var k: KartController = karts_by_peer[id]
-		hud.show_message("%s 연결 끊김 (DNF)" % k.display_name, 2.5, UITheme.RED)
+		if hud:
+			hud.show_message("%s 연결 끊김 (DNF)" % k.display_name, 2.5, UITheme.RED)
 		if Net.is_host() and race.lap_managers.has(k):
 			race.lap_managers[k].dnf = true

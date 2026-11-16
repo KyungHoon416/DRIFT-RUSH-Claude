@@ -58,7 +58,7 @@ func test_room_lobby_error_states() -> void:
 	var code_in := room.find_child("CodeInput", true, false) as LineEdit
 	code_in.text = "QQQQQQ"
 	_press(room, "JoinOnline")
-	await tree().create_timer(0.6).timeout
+	await tree().create_timer(3.6).timeout   # LAN discovery (2.5 s) then backend
 	var status := room.find_child("Status", true, false) as Label
 	check(status.text.contains("존재하지 않는"), "unknown room code message shown (%s)" % status.text)
 

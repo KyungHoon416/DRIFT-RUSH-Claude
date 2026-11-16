@@ -54,3 +54,33 @@ func test_net_sanitizes_impossible_state() -> void:
 
 func test_can_start_rules_offline() -> void:
 	eq(Net.can_start()["ok"], false, "cannot start when not hosting")
+
+
+func test_lan_beacon_roundtrip() -> void:
+	var txt := LanDiscovery.encode({"code": "A7F3K9", "port": 7777, "name": "Kim|Racer", "players": 3, "capacity": 8,
+		"mode": "item", "map": "neon_city", "started": false})
+	var d := LanDiscovery.decode(txt)
+	eq(d["code"], "A7F3K9", "code")
+	eq(d["port"], 7777, "port")
+	eq(d["name"], "Kim/Racer", "separator in name escaped")
+	eq(d["mode"], "item", "mode")
+	eq(d["started"], false, "started flag")
+	check(LanDiscovery.decode("HELLO|x").is_empty(), "foreign packets ignored")
+
+
+func test_server_rejects_teleport_and_off_track() -> void:
+	var track: TrackBuilder = load("res://Scenes/Tracks/SakuraValley.tscn").instantiate()
+	spawn(track)
+	await physics_frames(2)
+	var rs := RaceSession.new()
+	rs.track = track
+	var p0 := track.transform_at(100.0).origin
+	var prev := {"p": p0, "h": 0.0, "t": 10.0, "off": 100.0}
+	eq(rs.check_state({}, p0, 10.0), "", "first state on track accepted")
+	eq(rs.check_state(prev, track.transform_at(101.5).origin, 10.05), "", "normal 30 m/s movement accepted")
+	eq(rs.check_state(prev, track.transform_at(350.0).origin, 10.05), "teleport", "250 m jump in 50 ms rejected")
+	var off_track: Vector3 = p0 + track.frame_at(100.0)["right"] * 40.0
+	eq(rs.check_state(prev, off_track, 10.05), "off_track", "outside the walls rejected")
+	eq(rs.check_state(prev, Vector3(p0.x, -30, p0.z), 10.05), "below_world", "under the map rejected")
+	eq(rs.check_state(prev, track.transform_at(85.0).origin, 10.05), "", "respawn slightly behind on centre line accepted")
+	rs.free()

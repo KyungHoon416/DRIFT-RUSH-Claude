@@ -10,7 +10,7 @@ var laps_spin: SpinBox
 
 const INFO := {
 	"speed": ["SPEED RACE · 스피드전", "공격 아이템 없이 드리프트와 부스터로만 승부합니다. 드리프트로 부스터 게이지를 채우고 BOOST로 가속하세요. 기본 3랩, 2~8명."],
-	"item": ["ITEM RACE · 아이템전", "트랙의 ? 상자에서 아이템(미사일·실드·터보·벚꽃 함정)을 얻습니다. 뒤처질수록 역전 아이템 확률이 높습니다. 오프라인 봇전 플레이 가능 · 온라인 아이템전은 개발 중."],
+	"item": ["ITEM RACE · 아이템전", "트랙의 ? 상자에서 아이템(미사일·실드·터보·벚꽃 함정)을 얻습니다. 뒤처질수록 역전 아이템 확률이 높습니다. 오프라인 봇전과 LAN/전용 서버 친구방 모두 지원 (아이템 판정은 서버)."],
 	"practice": ["PRACTICE · 연습하기", "혼자 달리며 랩 타임을 기록합니다(로컬 기록, 서버 미검증). 기울기 조향 연습에 추천."],
 }
 
@@ -92,7 +92,7 @@ func _select(m: String) -> void:
 			GameFlow.goto("room"))
 		actions.add_child(room)
 		if m == "item":
-			var note := UITheme.label("온라인 아이템전: 개발 중\n(친구방은 스피드전으로 진행)", 16, UITheme.ORANGE)
+			var note := UITheme.label("친구방 아이템전: 서버(방장/전용 서버)가\n획득·명중을 판정합니다", 16, UITheme.CYAN)
 			actions.add_child(note)
 	var tut := UITheme.button("기울기 튜토리얼", Vector2(330, 54))
 	tut.pressed.connect(func(): GameFlow.goto("tutorial"))

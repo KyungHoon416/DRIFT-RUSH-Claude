@@ -44,9 +44,12 @@ godot --path DRIFT_RUSH_GODOT res://Scenes/Race/RaceWorld.tscn -- --mode=speed -
 cd DRIFT_RUSH_GODOT
 godot --headless --path . --import                                         # 최초 1회
 godot --headless --path . res://Tools/CheckAll.tscn                        # 모든 스크립트·씬 로드 검사
-godot --headless --fixed-fps 60 --path . res://Tests/TestRunner.tscn       # 단위·통합 테스트 43개
+godot --headless --fixed-fps 60 --path . res://Tests/TestRunner.tscn       # 단위·통합 테스트 45개
 Tools/run_net_test.sh 150 0.03                                             # 2프로세스 LAN 레이스 (지연 150ms, 손실 3%)
 Tools/run_net_test.sh 0 0 12                                               # 경기 중 12초에 클라이언트 이탈 → DNF
+SCENARIO=dedicated Tools/run_net_test.sh                                   # 전용 서버 + 클라이언트 2 (코드 검색 참가)
+SCENARIO=items Tools/run_net_test.sh                                       # 온라인 아이템전 (서버 판정)
+SCENARIO=cheat Tools/run_net_test.sh                                       # 순간이동 치트 → 서버 위치 보정
 (cd Backend/functions && npm test)                                         # Cloud Functions 방 규칙 테스트
 xvfb-run -a godot --rendering-method gl_compatibility --fixed-fps 30 --path . res://Tools/Capture.tscn -- --autopilot   # 스크린샷
 ```
@@ -69,8 +72,22 @@ xvfb-run -a godot --rendering-method gl_compatibility --fixed-fps 30 --path . re
 ## 7. Firebase 연결
 기본값은 `MockBackend`입니다(UI에 "MOCK 백엔드 · Firebase 미연결"이라고 표시됨). `Config/firebase_config.example.json`을 `Config/firebase_config.json`으로 복사해 값을 채우면 `FirebaseAdapter`(REST)로 전환됩니다. 자세한 절차는 `Docs/FIREBASE_SETUP.md`를 보세요.
 
-## 8. 친구와 대전 (LAN)
-같은 Wi-Fi에서 한 명이 **FRIENDS → 방 만들기(호스트)**, 나머지는 호스트 IP를 입력해 **IP로 참가**합니다. 모두 READY를 누르면 방장이 START합니다(2~8명). 인터넷을 통한 전용 서버 대전은 아직 없습니다(`Docs/OPEN_ISSUES.md` 참고).
+## 8. 친구와 대전
+**같은 Wi-Fi (LAN)**
+1. 한 명이 **FRIENDS → 방 만들기(호스트)**를 누르면 6자리 **ROOM CODE**가 생깁니다.
+2. 친구들은 **코드로 참가**에 그 코드를 넣거나, **근처 방** 목록에서 고릅니다. IP를 몰라도 됩니다(주소로 참가도 가능).
+3. 모두 READY를 누르면 방장이 START합니다(2~8명). 방에서 스피드전/아이템전, 맵, 랩 수를 고릅니다.
+
+**전용 서버 (인터넷 대전용)**
+
+헤드리스 서버를 띄우면 방장 없이 전원 READY 시 자동으로 시작합니다.
+```bash
+godot --headless --path . -- --server --port=7777 --mode=speed --map=sakura_valley --laps=3
+# 또는 내보낸 Linux 빌드:  ./DriftRush.x86_64 --headless -- --server --port=7777
+```
+클라이언트는 **주소로 참가**에 서버 IP를 넣습니다(같은 네트워크면 코드로도 찾을 수 있음). 인터넷에서 쓰려면 UDP 7777을 연 VM이 필요하며, 비용이 들기 때문에 이 작업에서는 만들지 않았습니다.
+
+서버가 랩·순위·아이템 획득/명중을 판정하고, 클라이언트가 보낸 위치가 물리적으로 불가능하면(순간이동, 트랙 밖, 맵 아래) 거부하고 위치를 되돌립니다.
 
 ## 9. 폴더 구조
 ```
