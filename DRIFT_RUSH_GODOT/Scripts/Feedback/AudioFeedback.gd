@@ -49,6 +49,10 @@ func _ready() -> void:
 	streams["trap"] = _trap_plop()
 	streams["blocked"] = _sparkle([2093.0, 1568.0], 0.05)
 	streams["respawn"] = _warp()
+	streams["splash"] = _splash()
+	streams["zap"] = _zap()
+	streams["magnet"] = _magnet_hum()
+	streams["storm"] = _jet_whoosh(0.9, 0.45)
 	streams["lap"] = _fanfare([[784.0], [1046.0]], 0.13)
 	streams["final_lap"] = _fanfare([[659.0], [784.0], [988.0, 1318.0]], 0.14)
 	streams["finish"] = _fanfare([[523.0, 659.0], [659.0, 784.0], [784.0, 988.0], [1046.0, 1318.0, 1568.0]], 0.18)
@@ -519,3 +523,34 @@ func _bgm_loop() -> AudioStreamWAV:
 			v += _rng.randf_range(-0.12, 0.12)   # hat
 		s[i] = v * 0.7
 	return _wav(s, true)
+
+
+func _splash() -> AudioStreamWAV:
+	var s := _buf(0.6)
+	var f := SVF.new()
+	for i in s.size():
+		var t := float(i) / RATE
+		var n := f.process(_rng.randf_range(-1.0, 1.0), lerpf(0.4, 0.08, minf(1.0, t * 3.0)), 0.6)
+		var bloop := sin(TAU * lerpf(500.0, 150.0, minf(1.0, t * 6.0)) * t) * exp(-t * 14.0)
+		s[i] = (n * 0.9 + bloop * 0.6) * exp(-t * 5.0) * minf(1.0, t * 300.0)
+	return _wav(_normalize(s, 0.8))
+
+
+func _zap() -> AudioStreamWAV:
+	var s := _buf(0.55)
+	var ph := 0.0
+	for i in s.size():
+		var t := float(i) / RATE
+		ph += lerpf(1800.0, 120.0, minf(1.0, t * 2.2)) / RATE
+		var buzz := _osc("square", ph) * 0.4 + _osc("saw", ph * 1.01) * 0.3
+		s[i] = (buzz + _rng.randf_range(-0.3, 0.3) * exp(-t * 10.0)) * exp(-t * 4.0)
+	return _wav(_normalize(s, 0.7))
+
+
+func _magnet_hum() -> AudioStreamWAV:
+	var s := _buf(0.9)
+	for i in s.size():
+		var t := float(i) / RATE
+		var wob := 1.0 + 0.06 * sin(TAU * 9.0 * t)
+		s[i] = (sin(TAU * 220.0 * wob * t) * 0.5 + sin(TAU * 440.0 * wob * t) * 0.25 + _osc("tri", 660.0 * t) * 0.1) * minf(1.0, t * 20.0) * (1.0 - t / 0.9)
+	return _wav(_normalize(s, 0.6))

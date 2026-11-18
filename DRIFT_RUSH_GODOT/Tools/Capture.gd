@@ -118,6 +118,31 @@ func _run() -> void:
 		await _shot("14c_finish_confetti")
 		fx.queue_free()
 		await _wait(3)
+	if only == "" or only == "items":
+		GameFlow.race_config = {"mode": "item", "map": "sakura_valley", "laps": 3, "bots": 5, "online": false, "seed": 9}
+		var iw: RaceWorld = load("res://Scenes/Race/RaceWorld.tscn").instantiate()
+		add_child(iw)
+		await _wait(200)
+		var bots: Array = iw.karts.filter(func(k): return k != iw.player)
+		var p: KartController = iw.player
+		for pair in [["bomb", 30, "15a_item_water_bomb"], ["emp", 6, "15b_item_emp"], ["ghost", 10, "15c_item_ghost"]]:
+			p.item_cooldown = 0.0
+			p.give_item(String(pair[0]))
+			if pair[0] == "bomb":
+				# stop the kart so the puddle lands in front of the camera
+				p.control_enabled = false
+				p.speed = 0.0
+				await _wait(25)
+			iw.items.use_item(p)
+			await _wait(int(pair[1]))
+			await _shot(String(pair[2]))
+			p.control_enabled = true
+			await _wait(40)
+		p.blind_timer = 3.0
+		await _wait(10)
+		await _shot("15d_item_storm_blind")
+		iw.queue_free()
+		await _wait(3)
 	if only == "" or only == "coral":
 		GameFlow.race_config = {"mode": "speed", "map": "coral_coast", "laps": 3, "bots": 5, "online": false, "seed": 5}
 		var c: RaceWorld = load("res://Scenes/Race/RaceWorld.tscn").instantiate()

@@ -38,7 +38,10 @@ func _physics_process(delta: float) -> void:
 	to.y = 0.0
 	var desired := atan2(-to.x, -to.z)
 	var diff := wrapf(desired - kart.heading, -PI, PI)
-	kart.steer_input = clampf(-diff * 2.4, -1.0, 1.0)
+	var steer := -diff * 2.4
+	if kart.blind_timer > 0.0:
+		steer += sin(Time.get_ticks_msec() * 0.004 + lane) * 0.45   # can't see: wobbles
+	kart.steer_input = clampf(steer, -1.0, 1.0)
 	# Corner severity ahead
 	var a: Vector3 = track.frame_at(off + 6.0)["flat"]
 	var b: Vector3 = track.frame_at(off + 6.0 + 18.0 + absf(kart.speed) * 0.6)["flat"]

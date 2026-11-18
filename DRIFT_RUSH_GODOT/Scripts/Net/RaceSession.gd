@@ -120,6 +120,7 @@ func _physics_process(_delta: float) -> void:
 			"p": local_kart.global_position, "h": local_kart.heading, "s": local_kart.speed,
 			"d": local_kart.drift.direction if local_kart.drift.drifting else 0,
 			"b": local_kart.boost.active, "sh": local_kart.shield_timer > 0.0, "sp": local_kart.spin_timer > 0.0,
+			"gh": local_kart.ghost_timer > 0.0,
 		})
 	if _clock_offset == INF:
 		return
@@ -147,13 +148,13 @@ static func sample(buf: Array, render_t: float) -> Dictionary:
 			var sb: Dictionary = b["s"]
 			return {"p": (sa["p"] as Vector3).lerp(sb["p"], w), "h": lerp_angle(float(sa["h"]), float(sb["h"]), w),
 				"s": lerpf(float(sa["s"]), float(sb["s"]), w), "d": sb["d"], "b": sb["b"],
-				"sh": sb.get("sh", false), "sp": sb.get("sp", false)}
+				"sh": sb.get("sh", false), "sp": sb.get("sp", false), "gh": sb.get("gh", false)}
 	# Late: extrapolate from the last snapshot along its heading for a short time.
 	var last: Dictionary = buf[-1]["s"]
 	var dt := minf(render_t - float(buf[-1]["t"]), MAX_EXTRAPOLATE)
 	var h := float(last["h"])
 	var p: Vector3 = last["p"] + Vector3(-sin(h), 0, -cos(h)) * float(last["s"]) * dt
-	return {"p": p, "h": h, "s": last["s"], "d": last["d"], "b": last["b"], "sh": last.get("sh", false), "sp": last.get("sp", false)}
+	return {"p": p, "h": h, "s": last["s"], "d": last["d"], "b": last["b"], "sh": last.get("sh", false), "sp": last.get("sp", false), "gh": last.get("gh", false)}
 
 
 func apply_interpolated(k: KartController, buf: Array, render_t: float) -> void:
@@ -170,6 +171,7 @@ func apply_interpolated(k: KartController, buf: Array, render_t: float) -> void:
 	k.boost.active = bool(s["b"])
 	k.shield_timer = 1.0 if s["sh"] else 0.0
 	k.spin_timer = 0.5 if s["sp"] else 0.0
+	k.ghost_timer = 1.0 if s.get("gh", false) else 0.0
 	snapshots_applied += 1
 
 

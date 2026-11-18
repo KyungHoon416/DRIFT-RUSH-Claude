@@ -7,6 +7,11 @@
     "missile": { "label": "MISSILE", "weight_front": 1, "weight_back": 4, "speed": 55.0, "lifetime": 6.0, "spin_sec": 1.2 },
     "shield":  { "label": "SHIELD",  "weight_front": 3, "weight_back": 2, "duration": 6.0 },
     "turbo":   { "label": "TURBO",   "weight_front": 2, "weight_back": 4, "duration": 1.6, "bonus": 14.0 },
-    "trap":    { "label": "PETAL TRAP", "weight_front": 4, "weight_back": 1, "lifetime": 25.0, "spin_sec": 1.0 }
+    "trap":    { "label": "PETAL TRAP", "weight_front": 4, "weight_back": 1, "lifetime": 25.0, "spin_sec": 1.0 },
+    "bomb":    { "label": "WATER BOMB", "weight_front": 3, "weight_back": 2, "distance": 22.0, "radius": 3.6, "puddle_sec": 7.0, "slow_sec": 1.2 },
+    "emp":     { "label": "EMP", "weight_front": 1, "weight_back": 3, "radius": 25.0, "spin_sec": 0.8 },
+    "magnet":  { "label": "MAGNET", "weight_front": 0.5, "weight_back": 4, "duration": 3.0, "bonus": 7.0 },
+    "storm":   { "label": "STORM", "weight_front": 0.3, "weight_back": 3, "duration": 3.5 },
+    "ghost":   { "label": "GHOST", "weight_front": 2, "weight_back": 2, "duration": 3.5 }
   }
 }

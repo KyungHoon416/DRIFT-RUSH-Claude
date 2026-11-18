@@ -9,6 +9,9 @@ var helmet_mat: StandardMaterial3D
 var accent_mat: StandardMaterial3D
 var number_label: Label3D
 var underglow: MeshInstance3D
+var ghost_aura: MeshInstance3D
+var ghosted := false
+var _ghost_t := 0.0
 var kart_type := "rocket"
 var exhaust_points: Array = []
 var driver_offset := Vector3.ZERO
@@ -169,6 +172,18 @@ func set_underglow(on: bool, col := Color(0.2, 0.8, 1.0)) -> void:
 		underglow.visible = on
 
 
+## Ghost item: whole kart turns see-through.
+func set_ghost(on: bool) -> void:
+	ghosted = on
+	if on and ghost_aura == null:
+		ghost_aura = MeshFactory.add(self, MeshFactory.capsule(1.0, 3.4), MeshFactory.mat(Color(0.55, 0.9, 1.0, 0.3), 0.1, 0.0, 2.0, 0.0), Vector3(0, 0.9, 0), Vector3(90, 0, 0), Vector3(1.0, 1.0, 0.75))
+		ghost_aura.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if ghost_aura:
+		ghost_aura.visible = on
+	if not on:
+		body.visible = true
+
+
 func set_number(n: int) -> void:
 	if number_label:
 		number_label.text = str(n)
@@ -258,6 +273,11 @@ func _make_flame() -> CPUParticles3D:
 
 ## Called every frame by KartController.
 func animate(dt: float, speed: float, steer: float, drift_dir: int, drift_charge: float, boosting: bool, spin_t: float) -> void:
+	if ghosted:
+		# Blink + aura (works on every renderer, unlike per-instance transparency).
+		_ghost_t += dt
+		body.visible = fmod(_ghost_t, 0.18) < 0.11
+		ghost_aura.scale = Vector3(1.0, 1.0, 0.75) * (1.0 + 0.05 * sin(_ghost_t * 12.0))
 	_wheel_angle += speed * dt / 0.36
 	for w in wheels:
 		w.rotation.x = -_wheel_angle

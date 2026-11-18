@@ -22,6 +22,8 @@ var rng := RandomNumberGenerator.new()
 var boxes: Array[Area3D] = []
 var projectiles: Array[Dictionary] = []   # {id, node, owner, target, life, speed, spin, offset, visual}
 var traps: Array[Dictionary] = []          # {id, node, owner, life, armed, spin, visual}
+var bombs: Array[Dictionary] = []          # {id, node, puddle, from, to, t, flight, life, radius, landed, visual, owner}
+var beams: Array[Dictionary] = []          # {node, a, b, life}
 var events_seen := 0
 var _box_timers: Dictionary = {}
 var _next_id := 1
@@ -156,6 +158,17 @@ func use_item(k: KartController) -> void:
 			_fire_missile(k, def)
 		"trap":
 			_drop_trap(k, def)
+		"bomb":
+			_throw_bomb(k, def)
+		"emp":
+			_emp(k, def)
+		"magnet":
+			_magnet(k, def)
+		"storm":
+			_storm(k, def)
+		"ghost":
+			if role != "server" or not k.is_remote:
+				k.start_ghost(float(def.get("duration", 3.5)))
 	item_used.emit(k, it)
 
 
@@ -254,6 +267,8 @@ func _on_item_event(ev: Dictionary) -> void:
 					k.apply_turbo(float(def.get("duration", 1.6)), float(def.get("bonus", 14.0)))
 				elif mine and ev["item"] == "shield":
 					k.shield_timer = float(def.get("duration", 6.0))
+				elif mine and ev["item"] == "ghost":
+					k.start_ghost(float(def.get("duration", 3.5)))
 		"missile":
 			if role == "client":
 				var n := _missile_node()
@@ -269,6 +284,25 @@ func _on_item_event(ev: Dictionary) -> void:
 		"end":
 			if role == "client":
 				_remove_by_id(int(ev["id"]))
+		"bomb":
+			if role == "client":
+				_spawn_bomb_visual(int(ev["id"]), ev["from"], ev["to"], float(ev.get("radius", 3.6)), true)
+		"emp":
+			if role == "client":
+				_emp_ring(ev["pos"], float(ev.get("radius", 25.0)))
+		"magnet":
+			if role == "client":
+				_magnet_beam(_kart(int(ev["peer"])), _kart(int(ev.get("target", 0))), float(ev.get("sec", 3.0)))
+			if mine and role == "client":
+				k.apply_turbo(float(ev.get("sec", 3.0)), float(ev.get("bonus", 7.0)))
+		"slow":
+			if mine:
+				k.apply_slow(float(ev.get("sec", 1.0)))
+		"blind":
+			if k:
+				_petal_burst(k)
+			if mine:
+				k.apply_blind(float(ev.get("sec", 3.5)))
 		"hit":
 			if mine:
 				k.invulnerable_timer = 0.0
@@ -316,6 +350,8 @@ func _physics_process(delta: float) -> void:
 				use_item(k)
 	_update_projectiles(delta)
 	_update_traps(delta)
+	_update_bombs(delta)
+	_update_beams(delta)
 
 
 func _update_projectiles(delta: float) -> void:
@@ -373,3 +409,194 @@ func _update_traps(delta: float) -> void:
 					break
 		if float(tr["life"]) <= 0.0:
 			_end(tr, traps)
+
+
+# ------------------------------------------------------------- new items
+## WATER BOMB: lobbed ~22 m ahead; the puddle slows karts that drive through.
+func _throw_bomb(owner: KartController, def: Dictionary) -> void:
+	var off := track.closest_offset(owner.global_position)
+	var lat := track.lateral_distance(owner.global_position, off)
+	var from := owner.global_position + Vector3.UP * 1.2
+	# Land well ahead of where the thrower will be when it comes down.
+	var dist := float(def.get("distance", 22.0)) + absf(owner.speed) * 0.7
+	var to := track.transform_at(off + dist, clampf(lat, -4.0, 4.0)).origin
+	var id := _new_id()
+	var b := _spawn_bomb_visual(id, from, to, float(def.get("radius", 3.6)), false)
+	b["owner"] = owner
+	b["life"] = float(def.get("puddle_sec", 7.0))
+	b["life0"] = b["life"]
+	b["slow"] = float(def.get("slow_sec", 1.2))
+	if role == "server":
+		Net.send_item_event({"t": "bomb", "id": id, "from": from, "to": to, "radius": b["radius"]})
+
+
+func _spawn_bomb_visual(id: int, from: Vector3, to: Vector3, radius: float, visual: bool) -> Dictionary:
+	var n := Node3D.new()
+	MeshFactory.add(n, MeshFactory.sphere(0.45, 14, 8), MeshFactory.mat(Color(0.3, 0.65, 1.0, 0.85), 0.1, 0.0, 0.6))
+	MeshFactory.add(n, MeshFactory.sphere(0.15, 8, 4), MeshFactory.mat(Color(1, 1, 1), 0.1, 0.0, 1.0), Vector3(0.15, 0.25, -0.2))
+	add_child(n)
+	n.global_position = from
+	var b := {"id": id, "node": n, "puddle": null, "from": from, "to": to, "t": 0.0, "flight": 0.7,
+		"life": 8.0, "radius": radius, "landed": false, "visual": visual, "owner": null, "slow": 1.2}
+	bombs.append(b)
+	return b
+
+
+func _update_bombs(delta: float) -> void:
+	for b in bombs.duplicate():
+		if not b["landed"]:
+			b["t"] = float(b["t"]) + delta
+			var k := clampf(float(b["t"]) / float(b["flight"]), 0.0, 1.0)
+			var p: Vector3 = (b["from"] as Vector3).lerp(b["to"], k) + Vector3.UP * sin(k * PI) * 5.0
+			(b["node"] as Node3D).global_position = p
+			if k >= 1.0:
+				b["landed"] = true
+				(b["node"] as Node3D).visible = false
+				var puddle := MeshFactory.add(self, MeshFactory.cylinder(float(b["radius"]), float(b["radius"]), 0.04, 28),
+					MeshFactory.mat(Color(0.25, 0.6, 1.0, 0.6), 0.05, 0.2, 0.5, 0.0))
+				puddle.global_position = (b["to"] as Vector3) + Vector3.UP * 0.05
+				puddle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				b["puddle"] = puddle
+				AudioFeedback.play_at("splash", b["to"])
+			continue
+		b["life"] = float(b["life"]) - delta
+		var puddle_node: MeshInstance3D = b["puddle"]
+		if puddle_node:
+			puddle_node.scale = Vector3.ONE * (1.0 + 0.03 * sin(_t * 4.0))
+		if not b["visual"]:
+			for kk in race.karts:
+				if kk == b["owner"] and float(b["life"]) > float(b.get("life0", 7.0)) - 1.5:
+					continue   # thrower is immune to its own fresh puddle
+				if Vector2(kk.global_position.x - (b["to"] as Vector3).x, kk.global_position.z - (b["to"] as Vector3).z).length() < float(b["radius"]):
+					if role == "server" and kk.is_remote:
+						if float(_server_invuln.get("slow_%d" % kk.peer_id, 0.0)) <= 0.0:
+							_server_invuln["slow_%d" % kk.peer_id] = 0.8
+							Net.send_item_event({"t": "slow", "peer": _peer_of(kk), "sec": b["slow"]})
+					else:
+						kk.apply_slow(float(b["slow"]))
+		if float(b["life"]) <= 0.0:
+			bombs.erase(b)
+			(b["node"] as Node3D).queue_free()
+			if b["puddle"]:
+				(b["puddle"] as Node3D).queue_free()
+			if role == "server":
+				Net.send_item_event({"t": "end", "id": b["id"]})
+
+
+## EMP: shock ring around the user; every kart within the radius spins briefly.
+func _emp(owner: KartController, def: Dictionary) -> void:
+	var r := float(def.get("radius", 25.0))
+	_emp_ring(owner.global_position, r)
+	if role == "server":
+		Net.send_item_event({"t": "emp", "pos": owner.global_position, "radius": r})
+	for k in race.karts:
+		if k != owner and k.global_position.distance_to(owner.global_position) <= r:
+			_resolve_hit(k, "emp", float(def.get("spin_sec", 0.8)))
+
+
+func _emp_ring(pos: Vector3, radius: float) -> void:
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.86
+	ring.outer_radius = 1.0
+	ring.rings = 48
+	var m := MeshFactory.mat(Color(0.55, 0.95, 1.0, 0.9), 0.1, 0.0, 6.0, 0.0)
+	var mi := MeshFactory.add(self, ring, m)
+	mi.global_position = pos + Vector3.UP * 0.8
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var flash := MeshFactory.add(self, MeshFactory.sphere(1.0, 16, 8), MeshFactory.mat(Color(0.6, 0.95, 1.0, 0.35), 0.1, 0.0, 3.0, 0.0))
+	flash.global_position = pos + Vector3.UP * 0.8
+	flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var tw := create_tween()
+	tw.tween_property(mi, "scale", Vector3(radius, 12.0, radius), 0.5).from(Vector3(1, 12.0, 1))
+	tw.parallel().tween_property(flash, "scale", Vector3.ONE * 4.0, 0.25).from(Vector3.ONE)
+	tw.tween_callback(mi.queue_free)
+	tw.tween_callback(flash.queue_free)
+	AudioFeedback.play_at("zap", pos)
+
+
+## MAGNET: locks onto the kart ahead and pulls you along (stronger when far).
+func _magnet(owner: KartController, def: Dictionary) -> void:
+	var order := race.standings()
+	var idx := order.find(owner)
+	var target: KartController = order[idx - 1] if idx > 0 else null
+	var dist := owner.global_position.distance_to(target.global_position) if target else 0.0
+	var sec := float(def.get("duration", 3.0))
+	var bonus := float(def.get("bonus", 7.0)) + clampf(dist / 60.0, 0.0, 1.0) * 5.0
+	_magnet_beam(owner, target, sec)
+	if role == "server":
+		Net.send_item_event({"t": "magnet", "peer": _peer_of(owner), "target": _peer_of(target) if target else 0, "sec": sec, "bonus": bonus})
+		if owner.is_remote:
+			return
+	owner.apply_turbo(sec, bonus)
+
+
+func _magnet_beam(a: KartController, b: KartController, sec: float) -> void:
+	if a == null:
+		return
+	var n := MeshFactory.add(self, MeshFactory.cylinder(0.12, 0.12, 1.0, 8), MeshFactory.mat(Color(1.0, 0.3, 0.5, 0.6), 0.1, 0.0, 3.0, 0.0))
+	n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.visible = b != null
+	beams.append({"node": n, "a": a, "b": b, "life": sec})
+	AudioFeedback.play_at("magnet", a.global_position)
+
+
+func _update_beams(delta: float) -> void:
+	for bm in beams.duplicate():
+		bm["life"] = float(bm["life"]) - delta
+		var n: MeshInstance3D = bm["node"]
+		var a: KartController = bm["a"]
+		var b: KartController = bm["b"]
+		if float(bm["life"]) <= 0.0 or not is_instance_valid(a):
+			beams.erase(bm)
+			n.queue_free()
+			continue
+		if b and is_instance_valid(b):
+			var pa := a.global_position + Vector3.UP * 1.0
+			var pb := b.global_position + Vector3.UP * 1.0
+			var mid := (pa + pb) / 2.0
+			var dir := pb - pa
+			if dir.length() > 0.1:
+				n.global_transform = Transform3D(Basis.looking_at(dir.normalized(), Vector3.UP) * Basis(Vector3.RIGHT, PI / 2.0), mid)
+				n.scale = Vector3(1.0, dir.length(), 1.0)
+
+
+## PETAL STORM: every kart ahead of you gets a petal cloud over its view.
+func _storm(owner: KartController, def: Dictionary) -> void:
+	var order := race.standings()
+	var idx := order.find(owner)
+	var sec := float(def.get("duration", 3.5))
+	for i in idx:
+		var k := order[i]
+		if role == "server":
+			# the event reaches every peer (incl. this one): burst + blind there
+			Net.send_item_event({"t": "blind", "peer": _peer_of(k), "sec": sec})
+		else:
+			_petal_burst(k)
+			if k.apply_blind(sec):
+				item_hit.emit(k, "storm")
+
+
+func _petal_burst(k: KartController) -> void:
+	if k == null or not is_instance_valid(k):
+		return
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.amount = 60
+	p.lifetime = 2.5
+	p.explosiveness = 0.7
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 2.5
+	p.direction = Vector3.UP
+	p.spread = 180.0
+	p.initial_velocity_min = 1.0
+	p.initial_velocity_max = 3.0
+	p.gravity = Vector3(0, -0.8, 0)
+	var q := QuadMesh.new()
+	q.size = Vector2(0.3, 0.22)
+	p.mesh = q
+	p.material_override = MeshFactory.particle_material(Color(1.0, 0.6, 0.8))
+	p.color = Color(1.0, 0.62, 0.82)
+	k.add_child(p)
+	p.position = Vector3(0, 1.6, 0)
+	p.emitting = true
+	get_tree().create_timer(3.0).timeout.connect(p.queue_free)

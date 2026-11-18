@@ -35,6 +35,25 @@ var pause_layer: Control
 var confirm_box: Control
 var _msg_timer := 0.0
 var speed_fx: ColorRect
+var blind_fx: ColorRect
+const BLIND_SHADER := """
+shader_type canvas_item;
+uniform float amount = 0.0;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void fragment() {
+	vec2 uv = UV * vec2(16.0, 9.0);
+	uv.y -= TIME * 0.6;
+	uv.x += sin(TIME * 0.8 + uv.y * 0.5) * 0.4;
+	vec2 cell = floor(uv);
+	vec2 f = fract(uv) - 0.5;
+	float h = hash(cell);
+	vec2 c = vec2(hash(cell + 1.3), hash(cell + 7.1)) - 0.5;
+	float petal = smoothstep(0.32, 0.18, length((f - c * 0.5) * vec2(1.0, 1.6)));
+	float centre = smoothstep(0.55, 0.0, length(UV - vec2(0.5, 0.55)));
+	float a = petal * step(0.25, h) * amount * (0.55 + 0.45 * centre);
+	COLOR = vec4(1.0, 0.6 + 0.2 * h, 0.8, clamp(a, 0.0, 0.92));
+}
+"""
 var _speed_fx_amount := 0.0
 const SPEED_LINES_SHADER := """
 shader_type canvas_item;
@@ -256,6 +275,19 @@ func _build() -> void:
 	root.add_child(speed_fx)
 	root.move_child(speed_fx, 0)
 
+	blind_fx = ColorRect.new()
+	blind_fx.name = "PetalStorm"
+	blind_fx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	blind_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bsh := Shader.new()
+	bsh.code = BLIND_SHADER
+	var bsm := ShaderMaterial.new()
+	bsm.shader = bsh
+	blind_fx.material = bsm
+	blind_fx.visible = false
+	root.add_child(blind_fx)
+	root.move_child(blind_fx, 1)
+
 	hint_label = UITheme.title_label("", 24, UITheme.CYAN)
 	hint_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	hint_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -449,6 +481,10 @@ func _process(delta: float) -> void:
 	drift_bar.queue_redraw()
 	touch.set_boost_fill(kart.boost_gauge)
 	_t += delta
+	var blind_a := clampf(kart.blind_timer / 0.6, 0.0, 1.0)
+	blind_fx.visible = blind_a > 0.01
+	if blind_fx.visible:
+		(blind_fx.material as ShaderMaterial).set_shader_parameter("amount", blind_a)
 	var want := 1.0 if kart.boost.active else clampf((kart.speed_kmh() - 118.0) / 30.0, 0.0, 0.5)
 	_speed_fx_amount = move_toward(_speed_fx_amount, want, delta * 3.0)
 	(speed_fx.material as ShaderMaterial).set_shader_parameter("amount", _speed_fx_amount)

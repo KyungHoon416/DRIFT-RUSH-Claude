@@ -52,6 +52,10 @@ var boost_gauge := 0.0
 var spin_timer := 0.0
 var shield_timer := 0.0
 var invulnerable_timer := 0.0
+var slow_timer := 0.0        # water-bomb puddle: top speed x0.6
+var blind_timer := 0.0       # petal storm: screen covered / AI wobbles
+var ghost_timer := 0.0       # ghost: passes through karts, immune to items
+var _ghost_applied := false
 var held_item := ""
 var item_cooldown := 0.0
 var offroad := false
@@ -142,6 +146,8 @@ func max_speed_now() -> float:
 	var m := float(stats["max_speed"]) * speed_multiplier
 	if offroad:
 		m *= float(stats["offroad_max_speed_factor"])
+	if slow_timer > 0.0:
+		m *= 0.6
 	return m
 
 
@@ -155,6 +161,7 @@ func _physics_process(delta: float) -> void:
 		# server-side item cooldown needs to tick here.
 		if item_cooldown > 0.0:
 			item_cooldown = maxf(0.0, item_cooldown - delta)
+		_update_ghost()
 		_animate(delta)
 		return
 	sim_time += delta
@@ -231,6 +238,10 @@ func _physics_process(delta: float) -> void:
 
 
 func _tick_timers(delta: float) -> void:
+	slow_timer = maxf(0.0, slow_timer - delta)
+	blind_timer = maxf(0.0, blind_timer - delta)
+	ghost_timer = maxf(0.0, ghost_timer - delta)
+	_update_ghost()
 	if spin_timer > 0.0:
 		spin_timer = maxf(0.0, spin_timer - delta)
 	if shield_timer > 0.0:
@@ -284,6 +295,8 @@ func _separate_from_karts() -> void:
 	for n in get_tree().get_nodes_in_group("karts"):
 		var o := n as KartController
 		if o == null or o == self or not o.is_inside_tree():
+			continue
+		if ghost_timer > 0.0 or o.ghost_timer > 0.0:
 			continue
 		if absf(global_position.y - o.global_position.y) > 1.2:
 			continue
@@ -351,7 +364,60 @@ func apply_turbo(duration: float, bonus: float) -> void:
 
 
 ## Item hit (missile / trap). Returns false if blocked by shield or invulnerable.
+func is_protected() -> bool:
+	return ghost_timer > 0.0
+
+
+## Water-bomb puddle. Returns false when shielded/ghosted.
+func apply_slow(sec: float) -> bool:
+	if is_protected() or shield_timer > 0.0:
+		return false
+	var fresh := slow_timer <= 0.0
+	slow_timer = maxf(slow_timer, sec)
+	if fresh:
+		_emit_impact("item", 0.35)
+	return true
+
+
+## Petal storm. Returns false when shielded/ghosted.
+func apply_blind(sec: float) -> bool:
+	if is_protected():
+		return false
+	if shield_timer > 0.0:
+		shield_timer = 0.0
+		return false
+	blind_timer = maxf(blind_timer, sec)
+	return true
+
+
+func start_ghost(sec: float) -> void:
+	ghost_timer = maxf(ghost_timer, sec)
+	_update_ghost()
+
+
+## While ghosted, ignore collisions with every other kart (both directions).
+func _update_ghost() -> void:
+	var want := ghost_timer > 0.0
+	if want == _ghost_applied or not is_inside_tree():
+		return
+	_ghost_applied = want
+	for n in get_tree().get_nodes_in_group("karts"):
+		var o := n as KartController
+		if o == null or o == self:
+			continue
+		if want:
+			add_collision_exception_with(o)
+			o.add_collision_exception_with(self)
+		else:
+			remove_collision_exception_with(o)
+			o.remove_collision_exception_with(self)
+	if model:
+		model.set_ghost(want)
+
+
 func apply_item_hit(spin_sec: float) -> bool:
+	if is_protected():
+		return false
 	if invulnerable_timer > 0.0:
 		return false
 	if shield_timer > 0.0:

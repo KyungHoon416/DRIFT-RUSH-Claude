@@ -469,6 +469,7 @@ func _sanitize_state(s: Dictionary) -> Dictionary:
 	out["b"] = bool(s.get("b", false))
 	out["sh"] = bool(s.get("sh", false))
 	out["sp"] = bool(s.get("sp", false))
+	out["gh"] = bool(s.get("gh", false))
 	return out
 
 

@@ -237,7 +237,8 @@ func _wire_feedback(k: KartController) -> void:
 
 
 func _on_item_used_sound(user: KartController, item: String) -> void:
-	var s: String = {"missile": "missile", "shield": "shield", "trap": "trap", "turbo": "boost"}.get(item, "")
+	var s: String = {"missile": "missile", "shield": "shield", "trap": "trap", "turbo": "boost",
+		"bomb": "missile", "storm": "storm", "ghost": "respawn"}.get(item, "")
 	if s == "":
 		return
 	if user == player:
