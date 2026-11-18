@@ -16,7 +16,10 @@ var _item_timer := 0.0
 
 
 func _ready() -> void:
-	rng.randomize()
+	if GameFlow.test_mode and kart:
+		rng.seed = hash(kart.display_name)   # reproducible test runs
+	else:
+		rng.randomize()
 	lane = rng.randf_range(-3.0, 3.0)
 
 

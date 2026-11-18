@@ -30,7 +30,7 @@ signal item_request(peer_id: int)
 const DEFAULT_PORT := 7777
 const MAX_PLAYERS := 8
 const SEND_HZ := 20.0
-const PROTOCOL_VERSION := 2
+const PROTOCOL_VERSION := 3
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 var players: Dictionary = {}     # peer_id -> {name, color, ready, connected, host, loaded}
@@ -132,7 +132,7 @@ func host_lan(player_name: String, color_id: String, port := DEFAULT_PORT, capac
 	server_port = port
 	room_code = _new_code()
 	room_settings["capacity"] = clampi(capacity, 2, MAX_PLAYERS)
-	players = {1: {"name": player_name, "color": color_id, "ready": false, "connected": true, "host": true, "loaded": false}}
+	players = {1: {"name": player_name, "color": color_id, "kart": String(SaveSettings.get_value("kart_type")), "ready": false, "connected": true, "host": true, "loaded": false}}
 	discovery.start_beacon(_beacon_payload)
 	lobby_updated.emit(players)
 	return OK
@@ -165,7 +165,7 @@ func join_lan(address: String, player_name: String, color_id: String, port := DE
 		connection_failed.emit("접속을 시작할 수 없습니다 (오류 %d)" % err)
 		return err
 	multiplayer.multiplayer_peer = peer
-	set_meta("pending_profile", {"name": player_name, "color": color_id})
+	set_meta("pending_profile", {"name": player_name, "color": color_id, "kart": String(SaveSettings.get_value("kart_type"))})
 	return OK
 
 
@@ -227,7 +227,7 @@ func _on_peer_disconnected(id: int) -> void:
 
 func _on_connected() -> void:
 	var prof: Dictionary = get_meta("pending_profile", {"name": "PLAYER", "color": "orange"})
-	_register.rpc_id(1, prof["name"], prof["color"], PROTOCOL_VERSION)
+	_register.rpc_id(1, prof["name"], prof["color"], PROTOCOL_VERSION, String(prof.get("kart", "rocket")))
 	connected.emit()
 
 
@@ -244,7 +244,7 @@ func _on_server_disconnected() -> void:
 
 # ------------------------------------------------------------- lobby RPCs
 @rpc("any_peer", "call_remote", "reliable")
-func _register(player_name: String, color_id: String, version: int) -> void:
+func _register(player_name: String, color_id: String, version: int, kart_type := "rocket") -> void:
 	if not is_host():
 		return
 	var id := multiplayer.get_remote_sender_id()
@@ -254,7 +254,9 @@ func _register(player_name: String, color_id: String, version: int) -> void:
 	for p in players.values():
 		if p["name"] == player_name and p["connected"]:
 			player_name = "%s_%d" % [player_name, id % 100]   # duplicate nickname guard
-	players[id] = {"name": player_name.substr(0, 16), "color": color_id, "ready": false, "connected": true, "host": false, "loaded": false}
+	if kart_type not in GameFlow.KART_TYPES:
+		kart_type = "rocket"
+	players[id] = {"name": player_name.substr(0, 16), "color": color_id, "kart": kart_type, "ready": false, "connected": true, "host": false, "loaded": false}
 	_sync_lobby.rpc(players, room_settings, room_code, dedicated)
 	lobby_updated.emit(players)
 

@@ -260,6 +260,7 @@ func _on_lobby_updated(players: Dictionary) -> void:
 			sw.custom_minimum_size = Vector2(0, 26)
 			v.add_child(sw)
 			v.add_child(UITheme.label(String(p["name"]), 20, UITheme.TEXT, true))
+			v.add_child(UITheme.label(String(p.get("kart", "rocket")).to_upper(), 14, UITheme.TEXT_DIM))
 			var st := "연결 끊김" if not p["connected"] else ("HOST" if p["host"] else ("✔ READY" if p["ready"] else "미준비"))
 			var stc := UITheme.RED if not p["connected"] else (UITheme.GREEN if p["ready"] or p["host"] else UITheme.TEXT_DIM)
 			v.add_child(UITheme.label(st, 18, stc, true))

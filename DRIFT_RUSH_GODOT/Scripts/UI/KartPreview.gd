@@ -58,7 +58,7 @@ func _ready() -> void:
 	viewport.add_child(pivot)
 	model = KartModel.new()
 	pivot.add_child(model)
-	model.build(GameFlow.kart_color(String(SaveSettings.get_value("kart_color"))), false, 0.0)
+	model.build(GameFlow.kart_color(String(SaveSettings.get_value("kart_color"))), false, 0.0, String(SaveSettings.get_value("kart_type")))
 	var cam := Camera3D.new()
 	cam.position = Vector3(0, 2.2, 5.2)
 	cam.fov = 45
@@ -95,6 +95,14 @@ func _build_garage() -> void:
 	root.add_child(sign)
 	MeshFactory.add(root, MeshFactory.box(Vector3(12, 0.12, 0.12)), MeshFactory.mat(Color(1.0, 0.3, 0.8), 0.2, 0.0, 4.0), Vector3(0, 2.3, -7.7))
 	MeshFactory.add(root, MeshFactory.box(Vector3(12, 0.12, 0.12)), MeshFactory.mat(Color(0.2, 0.8, 1.0), 0.2, 0.0, 4.0), Vector3(0, 4.1, -7.7))
+
+
+func set_kart_type(type_id: String, c: Color) -> void:
+	if model:
+		model.queue_free()
+	model = KartModel.new()
+	pivot.add_child(model)
+	model.build(c, false, 0.0, type_id)
 
 
 func set_color(c: Color) -> void:

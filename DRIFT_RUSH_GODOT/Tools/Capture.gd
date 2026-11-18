@@ -83,6 +83,41 @@ func _run() -> void:
 		await _shot("10_neon_city_item_race")
 		n.queue_free()
 		await _wait(3)
+	if only == "" or only == "karts":
+		var g: Node = load("res://Scenes/UI/Garage.tscn").instantiate()
+		add_child(g)
+		await _wait(20)
+		for id in GameFlow.KART_TYPES:
+			(g.find_child("Kart_" + id, true, false) as Button).pressed.emit()
+			await _wait(25)
+			await _shot("07_garage_" + id)
+		g.queue_free()
+		await _wait(2)
+	if only == "" or only == "fx":
+		GameFlow.race_config = {"mode": "speed", "map": "sakura_valley", "laps": 3, "bots": 7, "online": false, "seed": 7}
+		var fx: RaceWorld = load("res://Scenes/Race/RaceWorld.tscn").instantiate()
+		add_child(fx)
+		await _wait(75)
+		await _shot("14a_start_lights")
+		await _wait(380)
+		fx.player.remove_child(fx.player.get_node_or_null("AIDriver"))
+		for n in fx.player.get_children():
+			if n is AIDriver:
+				n.queue_free()
+		fx.player.drift_input = true
+		fx.player.steer_input = 0.45
+		await _wait(26)
+		fx.player.drift_input = false
+		fx.player.steer_input = 0.0
+		fx.player.boost_gauge = 1.0
+		fx.player.boost_request = true
+		await _wait(12)
+		await _shot("14b_boost_speedlines_skids")
+		fx.race.mark_finished(fx.player, fx.race.race_time)
+		await _wait(28)
+		await _shot("14c_finish_confetti")
+		fx.queue_free()
+		await _wait(3)
 	if only == "" or only == "coral":
 		GameFlow.race_config = {"mode": "speed", "map": "coral_coast", "laps": 3, "bots": 5, "online": false, "seed": 5}
 		var c: RaceWorld = load("res://Scenes/Race/RaceWorld.tscn").instantiate()

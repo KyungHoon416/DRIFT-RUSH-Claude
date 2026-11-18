@@ -29,6 +29,7 @@ const DEFAULTS := {
 	# Profile / local state
 	"nickname": "",
 	"kart_color": "orange",
+	"kart_type": "rocket",           # rocket | bolt | bubble | drifter
 	"selected_map": "sakura_valley",
 	"tutorial_done": false,
 	"best_laps": {},                 # map_id -> seconds (local, NOT server-verified)

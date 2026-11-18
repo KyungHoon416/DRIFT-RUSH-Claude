@@ -34,6 +34,25 @@ var touch: TouchControls
 var pause_layer: Control
 var confirm_box: Control
 var _msg_timer := 0.0
+var speed_fx: ColorRect
+var _speed_fx_amount := 0.0
+const SPEED_LINES_SHADER := """
+shader_type canvas_item;
+uniform float amount = 0.0;
+uniform vec4 tint : source_color = vec4(0.75, 0.92, 1.0, 1.0);
+float hash(float n) { return fract(sin(n) * 43758.5453); }
+void fragment() {
+	vec2 p = UV - vec2(0.5, 0.52);
+	float r = length(p);
+	float a = atan(p.y, p.x);
+	float slot = floor((a + 3.14159) / 6.28318 * 90.0);
+	float h = hash(slot);
+	float t = fract(TIME * (1.5 + h * 2.0) + h);
+	float streak = step(0.55, h) * smoothstep(0.0, 0.08, r - (0.25 + t * 0.5)) * smoothstep(0.18, 0.0, r - (0.25 + t * 0.5));
+	float edge = smoothstep(0.28, 0.62, r);
+	COLOR = vec4(tint.rgb, clamp(streak * edge * amount * 1.1, 0.0, 0.85));
+}
+"""
 var desktop := true
 var help_panel: PanelContainer
 var hint_label: Label
@@ -224,6 +243,18 @@ func _build() -> void:
 	boost_label.offset_bottom = -160
 	boost_label.pivot_offset = Vector2(200, 35)
 	root.add_child(boost_label)
+
+	speed_fx = ColorRect.new()
+	speed_fx.name = "SpeedLines"
+	speed_fx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	speed_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := Shader.new()
+	sh.code = SPEED_LINES_SHADER
+	var sm := ShaderMaterial.new()
+	sm.shader = sh
+	speed_fx.material = sm
+	root.add_child(speed_fx)
+	root.move_child(speed_fx, 0)
 
 	hint_label = UITheme.title_label("", 24, UITheme.CYAN)
 	hint_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -418,6 +449,10 @@ func _process(delta: float) -> void:
 	drift_bar.queue_redraw()
 	touch.set_boost_fill(kart.boost_gauge)
 	_t += delta
+	var want := 1.0 if kart.boost.active else clampf((kart.speed_kmh() - 118.0) / 30.0, 0.0, 0.5)
+	_speed_fx_amount = move_toward(_speed_fx_amount, want, delta * 3.0)
+	(speed_fx.material as ShaderMaterial).set_shader_parameter("amount", _speed_fx_amount)
+	speed_fx.visible = _speed_fx_amount > 0.01
 	if _help_auto_hide > 0.0:
 		_help_auto_hide -= delta
 		if _help_auto_hide <= 0.0:

@@ -10,6 +10,7 @@ var config: Dictionary
 var track: TrackBuilder
 var race: RaceManager
 var items: ItemManager
+var effects: RaceEffects
 var session: RaceSession
 var hud: RaceHUD
 var camera: ChaseCamera
@@ -50,6 +51,11 @@ func _ready() -> void:
 		camera.current = true
 		camera.snap()
 		_add_petals()
+
+	effects = RaceEffects.new()
+	effects.name = "RaceEffects"
+	add_child(effects)
+	effects.setup(race, track, camera)
 
 	if String(config.get("mode")) == "item":
 		items = ItemManager.new()
@@ -104,6 +110,7 @@ func _spawn_karts() -> void:
 			var info: Dictionary = Net.players[id]
 			var k: KartController = kart_scene.instantiate()
 			k.peer_id = id
+			k.stats_id = String(info.get("kart", "rocket"))
 			var mine := id == Net.my_id() and Net.has_local_player()
 			k.is_remote = not mine
 			k.setup(String(info["name"]), GameFlow.kart_color(String(info["color"])), mine)
@@ -129,12 +136,14 @@ func _spawn_karts() -> void:
 		for slot in total:
 			var k: KartController = kart_scene.instantiate()
 			if slot == player_slot:
+				k.stats_id = String(SaveSettings.get_value("kart_type"))
 				k.setup(GameFlow.player_name(), my_color, true)
 			else:
 				var cid: String = colors[(bot_i + 1) % colors.size()]
 				var col := GameFlow.kart_color(cid)
 				if col.is_equal_approx(my_color):
 					col = GameFlow.kart_color(colors[(bot_i + 2) % colors.size()])
+				k.stats_id = GameFlow.KART_TYPES[(bot_i + 1) % GameFlow.KART_TYPES.size()]
 				k.setup(GameFlow.BOT_NAMES[bot_i % GameFlow.BOT_NAMES.size()], col, false)
 				k.speed_multiplier = randf_range(0.9, 0.97)
 				bot_i += 1

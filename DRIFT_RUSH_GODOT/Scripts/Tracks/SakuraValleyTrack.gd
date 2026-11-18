@@ -24,6 +24,7 @@ void fragment() {
 var spinners: Array[Node3D] = []
 var bobbers: Array[Dictionary] = []
 var _t := 0.0
+var cloud_layer: Node3D
 
 
 func _define_track() -> void:
@@ -44,6 +45,8 @@ func _process(delta: float) -> void:
 	_t += delta
 	for s in spinners:
 		s.rotate_object_local(Vector3.FORWARD, delta * 0.7)
+	if cloud_layer:
+		cloud_layer.rotate_y(delta * 0.006)
 	for b in bobbers:
 		var n: Node3D = b["node"]
 		n.position.y = float(b["y"]) + sin(_t * float(b["speed"]) + float(b["phase"])) * float(b["amp"])
@@ -336,11 +339,15 @@ func _balloons() -> void:
 
 func _clouds() -> void:
 	var m := MeshFactory.mat(Color(1, 1, 1), 1.0, 0.0, 0.25, 0.0)
+	cloud_layer = Node3D.new()
+	cloud_layer.name = "Clouds"
+	cloud_layer.position = Vector3(70, 0, 0)
+	decor_root.add_child(cloud_layer)
 	for i in 10:
 		var c := Node3D.new()
-		decor_root.add_child(c)
+		cloud_layer.add_child(c)
 		var ang := TAU * float(i) / 10.0
-		c.position = Vector3(70 + cos(ang) * 320, _rng.randf_range(90, 130), sin(ang) * 320)
+		c.position = Vector3(cos(ang) * 320, _rng.randf_range(90, 130), sin(ang) * 320)
 		for k in 5:
 			var s := _rng.randf_range(8, 14)
 			var mi := MeshFactory.add(c, MeshFactory.sphere(1.0, 10, 6), m, Vector3(k * 9.0 - 18.0, _rng.randf_range(-2, 3), _rng.randf_range(-4, 4)), Vector3.ZERO, Vector3(s, s * 0.7, s))

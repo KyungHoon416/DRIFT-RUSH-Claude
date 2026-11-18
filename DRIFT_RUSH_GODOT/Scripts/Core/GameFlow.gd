@@ -28,6 +28,8 @@ const KART_COLORS := {
 	"white": Color(0.92, 0.93, 0.96),
 }
 
+const KART_TYPES := ["rocket", "bolt", "bubble", "drifter"]
+
 const BOT_NAMES := ["LUNA", "METEOR", "SPARK", "BREEZE", "NOVA", "COMET", "RACER8"]
 
 var maps: Dictionary = {}
@@ -90,10 +92,23 @@ func _load_json(p: String) -> Dictionary:
 	return parsed if parsed is Dictionary else {}
 
 
+## Stat bars for the garage (0..1, relative across kart types).
+func kart_ratings(id: String) -> Dictionary:
+	var st := get_kart_stats(id)
+	return {
+		"속도": inverse_lerp(28.0, 32.0, float(st["max_speed"])),
+		"가속": inverse_lerp(11.5, 16.0, float(st["acceleration"])),
+		"핸들링": inverse_lerp(1.75, 2.2, float(st["turn_speed"])) * 0.6 + inverse_lerp(7.5, 11.0, float(st["grip"])) * 0.4,
+		"드리프트": inverse_lerp(0.45, 0.75, float(st["drift_charge_rate"])),
+	}
+
+
 func get_kart_stats(id := "default") -> Dictionary:
 	var base: Dictionary = kart_stats.get("default", {}).duplicate()
 	if id != "default" and kart_stats.has(id):
-		base.merge(kart_stats[id], true)
+		for k in kart_stats[id].keys():
+			if not String(k).begins_with("_"):
+				base[k] = kart_stats[id][k]
 	return base
 
 

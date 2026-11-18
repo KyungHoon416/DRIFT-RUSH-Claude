@@ -105,7 +105,7 @@ func _ready() -> void:
 		model = KartModel.new()
 		model.name = "Model"
 		add_child(model)
-		model.build(kart_color, bool(q.get("decor_lights", false)) and is_player, float(q.get("particles", 1.0)))
+		model.build(kart_color, bool(q.get("decor_lights", false)) and is_player, float(q.get("particles", 1.0)), stats_id)
 	add_to_group("karts")
 
 

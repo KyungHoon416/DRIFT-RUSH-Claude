@@ -93,4 +93,12 @@ func _hide_blocking_karts() -> void:
 		var k := n as KartController
 		if k == null or k == target or k.model == null:
 			continue
-		k.model.visible = global_position.distance_to(k.global_position + Vector3.UP * 0.8) > HIDE_DIST
+		var kp := k.global_position + Vector3.UP * 0.8
+		var hide := global_position.distance_to(kp) < HIDE_DIST
+		# Also hide karts sitting on the sight line between the lens and our kart.
+		var seg := (target.global_position + Vector3.UP * 0.8) - global_position
+		var t := (kp - global_position).dot(seg) / maxf(seg.length_squared(), 0.001)
+		if t > 0.0 and t < 0.92:
+			var closest := global_position + seg * t
+			hide = hide or closest.distance_to(kp) < 1.6
+		k.model.visible = not hide

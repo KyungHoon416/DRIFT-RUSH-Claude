@@ -159,8 +159,29 @@ static func label3d(text: String, size := 64, col := Color.WHITE, outline := Col
 	return l
 
 
+static var _soft_dot: GradientTexture2D
+
+
+## Round, soft-edged sprite so particles never look like square tiles.
+static func soft_dot() -> GradientTexture2D:
+	if _soft_dot == null:
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.65), Color(1, 1, 1, 0)])
+		var t := GradientTexture2D.new()
+		t.gradient = g
+		t.fill = GradientTexture2D.FILL_RADIAL
+		t.fill_from = Vector2(0.5, 0.5)
+		t.fill_to = Vector2(1.0, 0.5)
+		t.width = 64
+		t.height = 64
+		_soft_dot = t
+	return _soft_dot
+
+
 static func particle_material(col: Color, additive := false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
+	m.albedo_texture = soft_dot()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.vertex_color_use_as_albedo = true
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

@@ -25,5 +25,12 @@
     "drift_grip": 2.6,
     "gravity": 30.0,
     "offroad_max_speed_factor": 0.55
-  }
+  },
+  "rocket": { "_label": "ROCKET", "_desc": "균형형 · 무난한 입문 카트" },
+  "bolt": { "_label": "BOLT", "_desc": "최고속 특화 · 코너는 넓게",
+    "max_speed": 31.1, "acceleration": 12.2, "turn_speed": 1.84, "grip": 8.6 },
+  "bubble": { "_label": "BUBBLE", "_desc": "가속·그립 특화 · 최고속은 낮음",
+    "max_speed": 29.3, "acceleration": 15.0, "turn_speed": 2.12, "grip": 10.5, "drift_charge_rate": 0.5 },
+  "drifter": { "_label": "DRIFTER", "_desc": "드리프트 특화 · 빨리 충전, 잘 미끄러짐",
+    "max_speed": 29.8, "acceleration": 12.8, "drift_charge_rate": 0.72, "drift_gauge_rate": 0.4, "drift_turn_bonus": 1.32, "grip": 8.0, "drift_grip": 2.2 }
 }
