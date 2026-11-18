@@ -52,7 +52,7 @@ func _card(id: String) -> Control:
 	var b := Button.new()
 	b.name = "Card_" + id
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(500, 420)
+	b.custom_minimum_size = Vector2(390, 420)
 	b.toggle_mode = true
 	b.pressed.connect(_choose.bind(id))
 	var v := VBoxContainer.new()
@@ -66,10 +66,15 @@ func _card(id: String) -> Control:
 	var outline := TrackOutline.new()
 	outline.custom_minimum_size = Vector2(0, 250)
 	outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var neon := id == "neon_city"
-	outline.col = Color(0.3, 0.9, 1.0) if neon else Color(1.0, 0.6, 0.8)
-	outline.bg_top = Color(0.12, 0.05, 0.3) if neon else Color(0.55, 0.78, 1.0)
-	outline.bg_bottom = Color(0.08, 0.06, 0.18) if neon else Color(0.6, 0.85, 0.5)
+	var palette := {
+		"sakura_valley": [Color(1.0, 0.6, 0.8), Color(0.55, 0.78, 1.0), Color(0.6, 0.85, 0.5)],
+		"neon_city": [Color(0.3, 0.9, 1.0), Color(0.12, 0.05, 0.3), Color(0.08, 0.06, 0.18)],
+		"coral_coast": [Color(1.0, 0.55, 0.3), Color(1.0, 0.7, 0.5), Color(0.2, 0.6, 0.8)],
+	}
+	var pal: Array = palette.get(id, palette["sakura_valley"])
+	outline.col = pal[0]
+	outline.bg_top = pal[1]
+	outline.bg_bottom = pal[2]
 	# Measure the real track by instancing its definition (no rendering).
 	var length := 0.0
 	var track: TrackBuilder = load(String(info["scene"])).instantiate()
@@ -90,8 +95,14 @@ func _card(id: String) -> Control:
 	var dots := ""
 	for i in 5:
 		dots += "●" if i < int(info.get("difficulty", 1)) else "○"
-	v.add_child(UITheme.label("난이도 %s   곡률 %s" % [dots, info.get("curvature", "")], 18, UITheme.TEXT, true))
-	v.add_child(UITheme.label("트랙 길이 %.2f km (실측) · 3 LAP" % (length / 1000.0), 18, UITheme.TEXT_DIM))
+	var diff := UITheme.label("난이도 %s   곡률 %s" % [dots, info.get("curvature", "")], 17, UITheme.TEXT, true)
+	diff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	diff.custom_minimum_size = Vector2(1, 0)
+	v.add_child(diff)
+	var len_l := UITheme.label("트랙 길이 %.2f km (실측) · 3 LAP" % (length / 1000.0), 17, UITheme.TEXT_DIM)
+	len_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	len_l.custom_minimum_size = Vector2(1, 0)
+	v.add_child(len_l)
 	var status_text := "완성" if info.get("status") == "complete" else "플레이 가능 (프로토타입)"
 	v.add_child(UITheme.label(status_text, 16, UITheme.GREEN if info.get("status") == "complete" else UITheme.ORANGE, true))
 	cards[id] = b

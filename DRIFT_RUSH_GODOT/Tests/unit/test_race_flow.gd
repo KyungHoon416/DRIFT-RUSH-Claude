@@ -103,3 +103,14 @@ func test_camera_hides_kart_blocking_the_lens() -> void:
 	other.global_position = w.player.global_position + w.player.forward() * 15.0
 	await physics_frames(2)
 	check(other.model.visible, "kart ahead is visible again")
+
+
+func test_coral_coast_full_lap_with_bots() -> void:
+	var o := await _run_race("speed", "coral_coast", 5, 1, 120.0)
+	var w: RaceWorld = o["world"]
+	check(not o["results"].is_empty(), "coral coast race finished (%d frames)" % o["frames"])
+	var lm: LapManager = w.race.lap_managers[w.player]
+	check(lm.finished, "player completed the lap")
+	check(int(o["cps"]) >= w.track.checkpoint_count, "all checkpoints passed (%d)" % int(o["cps"]))
+	eq(int(o["respawns"]), 0, "no recovery needed on the cliff/bridge sections")
+	print("    coral coast: lap %.2f s" % lm.finish_time)

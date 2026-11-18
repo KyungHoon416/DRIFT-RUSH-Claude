@@ -83,5 +83,14 @@ func _run() -> void:
 		await _shot("10_neon_city_item_race")
 		n.queue_free()
 		await _wait(3)
+	if only == "" or only == "coral":
+		GameFlow.race_config = {"mode": "speed", "map": "coral_coast", "laps": 3, "bots": 5, "online": false, "seed": 5}
+		var c: RaceWorld = load("res://Scenes/Race/RaceWorld.tscn").instantiate()
+		add_child(c)
+		for pair in [[200, "13a_coral_beach"], [330, "13b_coral_cliff"], [330, "13c_coral_descent"], [290, "13d_coral_bridge"]]:
+			await _wait(int(pair[0]))
+			await _shot(String(pair[1]))
+		c.queue_free()
+		await _wait(3)
 	print("CAPTURE DONE")
 	get_tree().quit()

@@ -68,6 +68,8 @@ func test_map_select_applies_choice() -> void:
 	await frames(2)
 	_press(m, "Card_neon_city")
 	eq(SaveSettings.get_value("selected_map"), "neon_city", "map selection saved")
+	_press(m, "Card_coral_coast")
+	eq(SaveSettings.get_value("selected_map"), "coral_coast", "third map selectable")
 	_press(m, "Card_sakura_valley")
 	eq(SaveSettings.get_value("selected_map"), "sakura_valley", "map selection restored")
 

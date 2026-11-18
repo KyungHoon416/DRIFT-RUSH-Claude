@@ -81,3 +81,43 @@ func test_road_never_below_ground() -> void:
 			lowest = minf(lowest, (t.frame_at(d)["pos"] as Vector3).y)
 			d += 1.0
 		check(lowest >= 0.0, "%s road surface stays above the grass (lowest centre y %.3f)" % [path.get_file(), lowest])
+
+
+func test_coral_coast_structure() -> void:
+	var t := _make("res://Scenes/Tracks/CoralCoast.tscn")
+	await physics_frames(2)
+	check(t.length > 800.0, "coral coast length > 800 m (got %.0f)" % t.length)
+	eq(t.checkpoints.size(), 8, "8 checkpoints")
+	var wall_offset := t.half_width() + TrackBuilder.KERB_W + 0.8
+	check(t.min_radius() > wall_offset + 1.0, "min radius %.1f > wall offset %.1f" % [t.min_radius(), wall_offset])
+	var hi := 0.0
+	var d := 0.0
+	while d < t.length:
+		hi = maxf(hi, (t.frame_at(d)["pos"] as Vector3).y)
+		d += 2.0
+	check(hi >= 4.5, "cliff section climbs (max height %.1f m)" % hi)
+	for n in ["Decor/Ocean", "Decor/Lagoon", "Decor/Lighthouse", "Grandstand"]:
+		check(t.find_child(n.get_file(), true, false) != null, "%s exists" % n)
+
+
+func test_sections_never_overlap_on_any_map() -> void:
+	for path in GameFlow.maps.values().map(func(m): return m["scene"]):
+		var t: TrackBuilder = load(path).instantiate()
+		spawn(t)
+		await physics_frames(1)
+		var pts: Array = []
+		var d := 0.0
+		while d < t.length:
+			pts.append([d, t.frame_at(d)["pos"]])
+			d += 4.0
+		var need := 2.0 * (t.half_width() + TrackBuilder.KERB_W + 0.8)
+		var worst := INF
+		for i in pts.size():
+			for j in range(i + 1, pts.size()):
+				var along := absf(float(pts[i][0]) - float(pts[j][0]))
+				if minf(along, t.length - along) < 60.0:
+					continue
+				var a: Vector3 = pts[i][1]
+				var b: Vector3 = pts[j][1]
+				worst = minf(worst, Vector2(a.x - b.x, a.z - b.z).length())
+		check(worst > need, "%s: separate track sections keep their walls apart (closest %.1f m > %.1f m)" % [String(path).get_file(), worst, need])

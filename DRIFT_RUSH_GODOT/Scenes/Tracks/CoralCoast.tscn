@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://Scripts/Tracks/CoralCoastTrack.gd" id="1_s"]
+
+[node name="CoralCoast" type="Node3D"]
+script = ExtResource("1_s")

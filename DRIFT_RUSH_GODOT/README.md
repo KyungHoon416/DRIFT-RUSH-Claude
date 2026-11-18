@@ -5,6 +5,10 @@ Godot **4.7.2 Stable** 표준 빌드와 **GDScript**만 씁니다(Unity, C#, Web
 
 ![race](Docs/screenshots/09c_race_hud.png)
 
+**맵 3종:** Sakura Valley(벚꽃 계곡) · Neon City(야경 도심) · **Coral Coast(노을 해변 — 절벽 오르막, 등대, 석호 다리)**
+
+![coral](Docs/screenshots/13b_coral_cliff.png)
+
 | 데모 영상 | `Docs/demo/drift_rush_demo.mp4` (30초, Movie Maker로 실제 렌더링) |
 |---|---|
 | 스크린샷 | `Docs/screenshots/*.png` (Xvfb + OpenGL에서 실제 렌더링) |
@@ -48,7 +52,7 @@ godot --path DRIFT_RUSH_GODOT res://Scenes/Race/RaceWorld.tscn -- --mode=speed -
 cd DRIFT_RUSH_GODOT
 godot --headless --path . --import                                         # 최초 1회
 godot --headless --path . res://Tools/CheckAll.tscn                        # 모든 스크립트·씬 로드 검사
-godot --headless --fixed-fps 60 --path . res://Tests/TestRunner.tscn       # 단위·통합 테스트 59개
+godot --headless --fixed-fps 60 --path . res://Tests/TestRunner.tscn       # 단위·통합 테스트 62개
 Tools/run_net_test.sh 150 0.03                                             # 2프로세스 LAN 레이스 (지연 150ms, 손실 3%)
 Tools/run_net_test.sh 0 0 12                                               # 경기 중 12초에 클라이언트 이탈 → DNF
 SCENARIO=dedicated Tools/run_net_test.sh                                   # 전용 서버 + 클라이언트 2 (코드 검색 참가)
